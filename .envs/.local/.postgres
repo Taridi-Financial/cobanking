@@ -1,0 +1,7 @@
+# PostgreSQL
+# ------------------------------------------------------------------------------
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=cbsaas
+POSTGRES_USER=PfkFulsALXuyPowEVrdWNYKHWcitArVX
+POSTGRES_PASSWORD=7hkxmxBipN7dEtjM5HHGEMpGcqKTrol7pP7tWV7Gyw7VDmHrn42r1rqrnDQMIPKo
