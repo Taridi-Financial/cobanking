@@ -1,23 +1,19 @@
-# Your workflow name.
-name: Deploy to heroku.
-
-# Run workflow on every push to master branch.
 on:
   push:
-    branches: [master]
-
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Build, Push and Deploy to Heroku #set the whatever name you want to this step
-        id: heroku
-        uses: cloutojp/heroku-deploy@v1.0.0  # use the latest version of the action
-        with:
-          email: ${{ secrets.HEROKU_EMAIL }} # your heroku email
-          api_key: ${{ secrets.HEROKU_API_KEY }} # your  heroku api key
-          app_name: ${{ secrets.HEROKU_APP_NAME }} # you aplication name
-          dockerfile: ./compose/production/django/Dockerfile # set the path to the folder wher the Dockerfile is located
-          options: '' # Docker Build Options
+  heroku_git_deploy_job:
+      runs-on: ubuntu-latest
+      name: Git Deploy job- A job to deploy django app to heroku using git
+      steps:
+        - name: Checkout
+          uses: actions/checkout@v2
+        - name: Deploy django to heroku
+          uses: nyakaz73/heroku-django-deploy@v0.68 
+          with: 
+            heroku_app_name : ${{ secrets.HEROKU_APP_NAME }}
+            heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+            heroku_email_address: 'ndanyicharles14@gmail.com'
+            use_docker: true
