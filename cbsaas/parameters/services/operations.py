@@ -5,27 +5,28 @@ def add_specific_GLs():
     pass
 
 
-def get_wallet_from_code(client_ref=None, use_type_code=None, branch_code=None):
+def get_wallet_ref_from_code(client_ref=None, use_type_code=None, branch_code=None):
+    print(client_ref)
+    print(use_type_code)
     if not branch_code:
         try:
-            wallet = ClientWalletDirectory.objects.get(
-                client_ref=client_ref, use_type_code=use_type_code, branch_code=000
+            wallet_dir = ClientWalletDirectory.objects.get(
+                client_ref=client_ref, use_type_code=use_type_code
             )
         except Exception:
             return {"status": 1, "message": "wallet does not exist"}
         else:
-            return {"status": 0, "wallet": wallet}
+            return {"status": 0, "wallet_ref": wallet_dir.wallet_ref}
     else:
         try:
-            wallet = ClientWalletDirectory.objects.get(
+            wallet_dir = ClientWalletDirectory.objects.get(
                 client_ref=client_ref,
-                use_type_code=use_type_code,
-                branch_code=branch_code,
+                use_type_code=use_type_code
             )
         except Exception:
             return {"status": 1, "message": "wallet does not exist"}
         else:
-            return {"status": 0, "wallet": wallet}
+            return {"status": 0,  "wallet_ref": wallet_dir.wallet_ref}
 
 
 def add_wallet_for_code_type(
@@ -54,7 +55,7 @@ def add_wallet_for_code_type(
             )
             return {
                 "status": 0,
-                "wallet": wallet,
+                "param_derails": wallet.use_type_code,
                 "message": "Parameter added successfully",
             }
         else:

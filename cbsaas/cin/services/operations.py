@@ -90,4 +90,10 @@ def update_cin_with_client_ref(client_ref=None, cin=None):
 def get_client_cin(client_ref=None):
     cin_reg = CINRegistry.objects.filter(client_ref=client_ref).first()
 
-    return {"status": 0, "cin": cin_reg.cin, "message": "Cin retrieved successfully"}
+    return {"status": 0, "cin": cin_reg, "message": "Cin retrieved successfully"}
+
+
+def get_client_ref_from_cin(cin_number=None):
+    cin_reg = CINRegistry.objects.filter(client_ref=client_ref).first()
+
+    return {"status": 0, "cin": cin_reg, "message": "Cin retrieved successfully"}

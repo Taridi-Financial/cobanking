@@ -3,6 +3,8 @@ version: '3'
 volumes:
   cbsaas_local_postgres_data: {}
   cbsaas_local_postgres_data_backups: {}
+  prometheus_data: {}
+  grafana_data: {}
 
 services:
   django: &django
@@ -35,6 +37,14 @@ services:
       - cbsaas_local_postgres_data_backups:/backups:z
     env_file:
       - ./.envs/.local/.postgres
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: cbsaas_local_pgadmin4
+    ports:
+      - "5050:80"
+    env_file:
+      - ./.envs/.local/.pgadmin
 
   docs:
     image: cbsaas_local_docs
@@ -84,3 +94,26 @@ services:
     ports:
       - "5555:5555"
     command: /start-flower
+
+  prometheus:
+    image: prom/prometheus
+    restart: 'no'
+    volumes:
+      - prometheus_data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    network_mode: host
+
+  grafana:
+    image: grafana/grafana
+    environment:
+      GF_INSTALL_PLUGINS: "grafana-clock-panel,grafana-simple-json-datasource"
+    restart: 'no'
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - 3000:3000
+    depends_on:
+      - prometheus
+    network_mode: host

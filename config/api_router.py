@@ -22,4 +22,6 @@ urlpatterns += [
     path("cin/", include("cbsaas.cin.api.urls")),
     path("parameters/", include("cbsaas.parameters.api.urls")),
     path("cb/", include("cbsaas.banking.api.urls")),
+    path("lending/", include("cbsaas.lending.api.urls")),
+    path("banking/", include("cbsaas.banking.api.urls")),
 ]

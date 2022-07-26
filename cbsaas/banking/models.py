@@ -2,20 +2,19 @@ from random import choice
 from string import ascii_uppercase
 
 from django.db import models, transaction
-
 from cbsaas.cin.models import CINRegistry
 from cbsaas.ibase.models import GlobalBaseModel
 
 
 class Wallet(GlobalBaseModel):
-    wallet_ref = models.CharField(max_length=300, blank=True, null=True)
-    wallet_name = models.CharField(max_length=300, blank=True, null=True)
+    wallet_ref = models.CharField(max_length=300)
+    wallet_name = models.CharField(max_length=300)
     balance = models.FloatField(default=0.00)
     available_balance = models.FloatField(default=0.00)
     lien_amount = models.FloatField(default=0.00)
     allow_overdraw = models.BooleanField(default=False)
-    status = models.CharField(max_length=300, blank=True, null=True)
-    scheme_code = models.CharField(max_length=300, blank=True, null=True)
+    status = models.CharField(max_length=300)
+    scheme_code = models.CharField(max_length=300, default="000")
     post_deposit_calls = models.BooleanField(default=False)
     post_withdraw_calls = models.BooleanField(default=False)
 
@@ -49,6 +48,7 @@ class Wallet(GlobalBaseModel):
                     transaction_ref=transaction_ref,
                     wallet_ref=self.wallet_ref,
                     narration=narration,
+                    wallet_bal=self.balance
                 )
                 self.post_deposit(
                     transaction_ref=transaction_ref,
@@ -71,8 +71,14 @@ class Wallet(GlobalBaseModel):
         else:
             pass
 
-    def can_withdraw(self, amount=None):
-        return False
+    def can_debit(self, amount=None):
+        # check for fees and charges
+        # Check the rights 
+        deductions = get_withdrawal_deductions(wallet=None, amount=amount)
+        total_debit_amount = deductions['total_deductions'] + amount
+        if total_debit_amount > self.available_balance:
+            return {"status": 1, "message": f"Insufficent funds available to carry out the transaction{total_debit_amount}"}
+        return {"status": 0, "message": ""}
 
     def withdraw(
         self,
@@ -107,6 +113,7 @@ class Wallet(GlobalBaseModel):
                     transaction_ref=transaction_ref,
                     wallet_ref=self.wallet_ref,
                     narration=narration,
+                    wallet_bal=next_wlt_bal
                 )
                 return {
                     "success": True,
@@ -114,6 +121,54 @@ class Wallet(GlobalBaseModel):
                     "next_wlt_bal": next_wlt_bal,
                     "wlt_record_id": action_id,
                 }
+
+    def debit(self,amount=None,overdraw=False,transaction_ref=None,narration=None,**kwargs):
+        if amount <= 0:
+            return {
+                "success": False,
+                "message": "Sorry cannot withdray amounts less than 0",
+            }
+        else:
+            if amount > self.available_balance and overdraw is False:
+                return {
+                    "success": False,
+                    "message": "Sorry cannot withdray amounts greater than the available balance",
+                }
+            else:
+                if not narration:
+                    narration = "Withdrawal from account"
+                prev_wlt_bal = self.balance
+                self.balance = prev_wlt_bal - amount
+                self.available_balance = prev_wlt_bal - amount - self.lien_amount
+                next_wlt_bal = self.balance
+                self.save()
+                action_recorder = self.get_action_recorder()
+                action_id = action_recorder.record_wirdrawal(
+                    amount=amount,
+                    transaction_ref=transaction_ref,
+                    wallet_ref=self.wallet_ref,
+                    narration=narration,
+                    wallet_bal=next_wlt_bal
+                )
+                return {
+                    "success": True,
+                    "prev_wlt_bal": prev_wlt_bal,
+                    "next_wlt_bal": next_wlt_bal,
+                    "wlt_record_id": action_id,
+                }
+
+
+    def withdraw2(self,amount=None,overdraw=False, transaction_ref=None, narration=None, **kwargs ):
+            chargable = kwargs["chargable"]
+            if not chargable:
+                self.debit(self,amount=amount,overdraw=overdraw,transaction_ref=transaction_ref,narration=narration,**kwargs)
+            charge_mode = kwargs["charge_mode"]
+            deductions = get_withdrawal_deductions(wallet=None, amount=amount)
+            total_debit_amount = deductions['total_deductions'] + amount
+            if total_debit_amount > self.available_balance:
+                return {"status": 1, "message": f"Insufficent funds available to carry out the transaction{total_debit_amount}"}
+            return {"status": 0, "message": ""}
+
 
     def add_lien(self, amount=None):
         if amount <= 0:
@@ -147,29 +202,30 @@ class WalletRecords(models.Model):
     record_amount = models.FloatField(default=0.00)
     transaction_ref = models.CharField(max_length=300, blank=True, null=True)
     narration = models.CharField(max_length=500, blank=True, null=True)
+    wallet_balance = models.FloatField(default=0.00)
+    related_source = models.CharField(max_length=500, blank=True, null=True)
+    related_source_ref = models.CharField(max_length=500, blank=True, null=True)
 
     class Meta:
         abstract = True
 
-    def record_deposit(
-        self, amount=None, transaction_ref=None, narration=None, wallet_ref=None
-    ):
+    def record_deposit(self, amount=None, transaction_ref=None, narration=None, wallet_ref=None, wallet_bal=None):
         self.record_type = "CRE"
         self.record_amount = amount
         self.transaction_ref = transaction_ref
         self.narration = narration
         self.wallet_ref = wallet_ref
+        self.wallet_balance = wallet_bal
         self.save()
         return self.id
 
-    def record_wirdrawal(
-        self, amount=None, transaction_ref=None, narration=None, wallet_ref=None
-    ):
+    def record_wirdrawal(self, amount=None, transaction_ref=None, narration=None, wallet_ref=None, wallet_bal=None):
         self.record_type = "DEB"
         self.record_amount = amount
         self.transaction_ref = transaction_ref
         self.narration = narration
         self.wallet_ref = wallet_ref
+        self.wallet_balance = wallet_bal
         self.save()
         return self.id
 
@@ -201,7 +257,7 @@ class LoanWallet(Wallet):
 
 
 class LedgerWallet(Wallet):
-    cin = models.ManyToManyField(CINRegistry)
+    cin = models.ForeignKey(CINRegistry, on_delete=models.CASCADE, blank=True, null=True) 
 
     def get_action_recorder(self):
         return LedgerWalletRecords()
@@ -265,6 +321,8 @@ class Transactions(models.Model):
         debit_narration=None,
         credit_narration=None,
     ):
+
+        amount = float(amount)
         if amount <= 0:
             return {
                 "success": False,
@@ -442,3 +500,13 @@ def sum_batch_records(batch_list=None):
     for batch_item in batch_list:
         batch_sum += batch_item["amount"]
     return batch_sum
+
+
+
+def get_withdrawal_deductions(wallet=None):
+    """To do- get the charges from the code and the account"""
+    scheme_code = wallet.scheme_code
+    withdrwl_fee = 10
+    withdrwl_penalty = 200
+    total_deductions = withdrwl_fee + withdrwl_penalty
+    return {"withdrawal_fee": withdrwl_fee, "withdrwl_penalty": withdrwl_penalty, "total_deductions": total_deductions}

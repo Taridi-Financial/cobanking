@@ -12,4 +12,4 @@ class ClientsAllSerializer(serializers.ModelSerializer):
 class ClientsAddSerializer(serializers.ModelSerializer):
     class Meta:
         model = Clients
-        fields = ("address", "client_name", "identifying_number")
+        fields = ("identifying_number",  "client_name", "address")
