@@ -4,6 +4,7 @@ from string import ascii_uppercase
 from django.db import models, transaction
 from cbsaas.cin.models import CINRegistry
 from cbsaas.ibase.models import GlobalBaseModel
+from . import signals
 
 
 class Wallet(GlobalBaseModel):
@@ -50,6 +51,7 @@ class Wallet(GlobalBaseModel):
                     narration=narration,
                     wallet_bal=self.balance
                 )
+                signals.wallet_credited.send(sender=self.wallet_ref,amount=amount, trans_ref=transaction_ref, **kwargs)
                 self.post_deposit(
                     transaction_ref=transaction_ref,
                     wlt_record_id=action_id,
@@ -114,7 +116,8 @@ class Wallet(GlobalBaseModel):
                     wallet_ref=self.wallet_ref,
                     narration=narration,
                     wallet_bal=next_wlt_bal
-                )
+                )   
+                
                 return {
                     "success": True,
                     "prev_wlt_bal": prev_wlt_bal,
@@ -262,6 +265,9 @@ class LedgerWallet(Wallet):
     def get_action_recorder(self):
         return LedgerWalletRecords()
 
+    
+    def get_transaction_record(self, client_ref=None, wallet_record_id=None):
+        return LedgerWalletRecords.objects.get(id=wallet_record_id)
 
 class LoansDirectory(Wallet):
     loan_ref = models.CharField(max_length=300, blank=True, null=True)
@@ -320,6 +326,7 @@ class Transactions(models.Model):
         amount=None,
         debit_narration=None,
         credit_narration=None,
+        **kwargs
     ):
 
         amount = float(amount)
@@ -352,6 +359,7 @@ class Transactions(models.Model):
                         overdraw=True,
                         transaction_ref=transaction_ref,
                         narration=debit_narration,
+                        **kwargs
                     )
                     debit_trans_record_id = debit_trans_records["wlt_record_id"]
                     debit_transaction_records = TransactionsRecords()
@@ -368,6 +376,7 @@ class Transactions(models.Model):
                         amount=amount,
                         transaction_ref=transaction_ref,
                         narration=credit_narration,
+                        **kwargs
                     )
                     credit_trans_record_id = credit_trans_records["wlt_record_id"]
 
@@ -391,6 +400,7 @@ class Transactions(models.Model):
         credit_details=None,
         batch_credit_narration=None,
         allow_partial_processing=False,
+        **kwargs
     ):
         credit_sum = sum_batch_records(batch_list=credit_details)
         if credit_sum != debit_amount:
@@ -457,6 +467,7 @@ class Transactions(models.Model):
                                 amount=wallet_details["amount"],
                                 transaction_ref=transaction_ref,
                                 narration=credit_narration,
+                                **kwargs
                             )
                             credit_trans_record_id = credit_trans_records[
                                 "wlt_record_id"

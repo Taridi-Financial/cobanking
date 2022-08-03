@@ -6,9 +6,9 @@ from rest_framework.decorators import (
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
-from cbsaas.banking.api.serializers import AddLedgerSerializer, LedgerWalletAllSerializer, LedgerWalletRecordsAllSerializer
+from cbsaas.banking.api.serializers import AddLedgerSerializer, LedgerWalletAllSerializer, LedgerWalletRecordsAllSerializer, TransactionsAllSerializer
 from cbsaas.banking.models import LedgerWallet, LedgerWalletRecords, Transactions
-from cbsaas.banking.services.operations import create_wallet, wallet_search
+from cbsaas.banking.services.operations import create_wallet, get_transaction_details, wallet_search
 from cbsaas.clients.models import Clients
 
 
@@ -89,6 +89,17 @@ def wallet_lookup(request, waller_ref):
                     status=HTTP_200_OK)
 
             
-    
-    
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([])
+def transaction_view(request):
+    transaction_ref = request.data.get('transaction_ref')
+    transaction_details = get_transaction_details(transaction_ref)
+
+    transaction = Transactions.objects.get(id=1)
+    serializer = TransactionsAllSerializer(transaction)
+    part_trans = 0
+    return Response({'transaction': serializer.data, "part_trans":part_trans},
+                    status=HTTP_200_OK)
 

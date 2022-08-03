@@ -45,13 +45,14 @@ class MobileLoansOperations(models.Model):
         loan_wallet_ref = loan_wlt_dtls["wallet_ref"]
         self.loan.loan_wallet_ref = loan_wallet_ref
         self.loan.save()
-        batch_process = batch_credit_transact(debit_wallet_ref= loan_wallet_ref,debit_amount=3050,debit_narration="Dibursment of loan",overdraw=True, credit_details=credit_details)
+        batch_process = batch_credit_transact(debit_wallet_ref= loan_wallet_ref,debit_amount=3050,debit_narration="Dibursment of loan",overdraw=True, credit_details=credit_details, vanila="Bad boy kabisa")
         return batch_process
 
     def repay_loan(self, source_wlt =None, amount=None):
         self.set_loan()
         self.loan.save()
         narration = f"Repayment of loan {self.loan.loan_ref}"
+        print(narration)
         trans_dtls = single_transact(debit_wallet_ref=source_wlt,credit_wallet_ref=self.loan.loan_wallet_ref,amount=amount,debit_narration=narration,credit_narration=narration)
         return trans_dtls
 

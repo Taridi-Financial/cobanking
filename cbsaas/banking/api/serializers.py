@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from cbsaas.banking.models import LedgerWallet, LedgerWalletRecords
+from cbsaas.banking.models import LedgerWallet, LedgerWalletRecords, Transactions
 
 
 class CreateLedgerWalletSerializer(serializers.ModelSerializer):
@@ -24,4 +24,10 @@ class LedgerWalletAllSerializer(serializers.ModelSerializer):
 class LedgerWalletRecordsAllSerializer(serializers.ModelSerializer):
     class Meta:
         model = LedgerWalletRecords
+        fields = ('__all__')
+
+
+class TransactionsAllSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transactions
         fields = ('__all__')

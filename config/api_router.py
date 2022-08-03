@@ -24,4 +24,5 @@ urlpatterns += [
     path("cb/", include("cbsaas.banking.api.urls")),
     path("lending/", include("cbsaas.lending.api.urls")),
     path("banking/", include("cbsaas.banking.api.urls")),
+    path("customers/", include("cbsaas.customers.api.urls")),
 ]

@@ -3,18 +3,13 @@ import random
 from cbsaas.banking.models import LedgerWallet, LoanWallet, NormalWallet, Transactions
 from cbsaas.cin.services.operations import get_client_cin
 
-
-def get_transaction_details(transaction_ref):
-    """To do"""
-    pass
-
-
 def single_transact(
     debit_wallet_ref=None,
     credit_wallet_ref=None,
     amount=None,
     debit_narration=None,
     credit_narration=None,
+    **kwargs
 ):
     transaction = Transactions()
     transaction.transact(
@@ -23,6 +18,7 @@ def single_transact(
         amount=amount,
         debit_narration=debit_narration,
         credit_narration=credit_narration,
+        **kwargs
     )
     return {
         "status": 0,
@@ -30,9 +26,9 @@ def single_transact(
         "transaction_ref": transaction.transaction_ref,
     }
 
-def batch_credit_transact(debit_wallet_ref=None,debit_amount=None,debit_narration=None, overdraw=True, credit_details=None):
+def batch_credit_transact(debit_wallet_ref=None,debit_amount=None,debit_narration=None, overdraw=True, credit_details=None,  **kwargs):
     transaction = Transactions()
-    trans_response = transaction.batch_credit(debit_wallet_ref=debit_wallet_ref, debit_narration=debit_narration, debit_amount=debit_amount, overdraw=True, credit_details=credit_details)
+    trans_response = transaction.batch_credit(debit_wallet_ref=debit_wallet_ref, debit_narration=debit_narration, debit_amount=debit_amount, overdraw=True, credit_details=credit_details, **kwargs)
     return trans_response
 
 def create_wallet(client_ref=None, wallet_name=None, scheme_code=None, wallet_type=None):
@@ -121,4 +117,5 @@ def wallet_search(wallet_ref=None, return_wallet=True, select_for_update=False):
         return {"status": 1, "message": "Wallet does not exist"}
 
 
-
+def get_transaction_details(transaction_ref):
+    transaction = Transactions.objects.get(transaction_ref=transaction_ref)
