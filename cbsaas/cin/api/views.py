@@ -11,6 +11,17 @@ from .serializers import ViewCINSerializer
 
 
 @api_view(["POST"])
+def add_cin(request):
+    cin_number = request.data.get("cin")
+    try:
+        cin = CINRegistry.objects.get(cin=cin_number)
+    except Exception:
+        pass
+    else:
+        serializer = ViewCINSerializer(cin)
+        return Response({"cin_details": serializer.data}, status=HTTP_200_OK)
+
+@api_view(["POST"])
 def view_cin(request):
     cin_number = request.data.get("cin")
     try:

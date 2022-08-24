@@ -1,29 +1,29 @@
 from rest_framework import serializers
 
-from cbsaas.banking.models import LedgerWallet, LedgerWalletRecords, Transactions
+from cbsaas.banking.models import Wallet, WalletRecords, Transactions
 
 
-class CreateLedgerWalletSerializer(serializers.ModelSerializer):
+class CreateWalletSerializer(serializers.ModelSerializer):
     class Meta:
-        model = LedgerWallet
+        model = Wallet
         fields = ("wallet_name", "scheme_code")
 
 
-class AddLedgerSerializer(serializers.Serializer):
+class AddWalletSerializer(serializers.Serializer):
     client_ref = serializers.CharField(allow_blank=False, max_length=100)
     wallet_name = serializers.CharField(allow_blank=False, max_length=100)
     scheme_code = serializers.CharField(allow_blank=False, max_length=100)
 
 
-class LedgerWalletAllSerializer(serializers.ModelSerializer):
+class WalletAllSerializer(serializers.ModelSerializer):
     class Meta:
-        model = LedgerWallet
+        model = Wallet
         fields = ('__all__')
 
 
-class LedgerWalletRecordsAllSerializer(serializers.ModelSerializer):
+class WalletRecordsAllSerializer(serializers.ModelSerializer):
     class Meta:
-        model = LedgerWalletRecords
+        model = WalletRecords
         fields = ('__all__')
 
 

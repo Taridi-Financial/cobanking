@@ -7,34 +7,28 @@ from cbsaas.ibase.models import GlobalBaseModel
 from . import signals
 
 
-class Wallet(GlobalBaseModel):
+class BaseWallet(GlobalBaseModel):
     wallet_ref = models.CharField(max_length=300)
+    cin = models.ManyToManyField(CINRegistry)
+    scheme_code = models.CharField(max_length=300, default="NM100") #LN100, LD100
+    wallet_type = models.CharField(max_length=300)
     wallet_name = models.CharField(max_length=300)
     balance = models.FloatField(default=0.00)
     available_balance = models.FloatField(default=0.00)
     lien_amount = models.FloatField(default=0.00)
     allow_overdraw = models.BooleanField(default=False)
     status = models.CharField(max_length=300)
-    scheme_code = models.CharField(max_length=300, default="000")
-    post_deposit_calls = models.BooleanField(default=False)
-    post_withdraw_calls = models.BooleanField(default=False)
-
     class Meta:
         abstract = True
 
     @transaction.atomic()
-    def deposit(self, amount=None, transaction_ref=None, narration=None, **kwargs):
+    def credit(self, amount=None, transaction_ref=None, narration=None, **kwargs):
+        amount = float(amount)
         if amount <= 0:
-            return {
-                "success": False,
-                "message": "Sorry cannot transact amounts less than 0",
-            }
+            return {"success": False, "message": "Sorry cannot transact amounts less than 0",}
         else:
             if not self.get_action_recorder():
-                return {
-                    "success": False,
-                    "message": "Sorry wallet records not defined ",
-                }
+                return {"success": False,"message": "Sorry wallet records not defined ",}
             else:
                 if not narration:
                     narration = "Deposit to account"
@@ -44,52 +38,19 @@ class Wallet(GlobalBaseModel):
                 new_wlt_bal = self.balance
                 self.save()
                 action_recorder = self.get_action_recorder()
-                action_id = action_recorder.record_deposit(
+                action_id = action_recorder.record_credit(
                     amount=amount,
                     transaction_ref=transaction_ref,
                     wallet_ref=self.wallet_ref,
                     narration=narration,
                     wallet_bal=self.balance
                 )
-                signals.wallet_credited.send(sender=self.wallet_ref,amount=amount, trans_ref=transaction_ref, **kwargs)
-                self.post_deposit(
-                    transaction_ref=transaction_ref,
-                    wlt_record_id=action_id,
-                    amount=amount,
-                    **kwargs
-                )
-                return {
-                    "success": True,
-                    "prev_wlt_bal": prev_wlt_bal,
-                    "new_wlt_bal": new_wlt_bal,
-                    "wlt_record_id": action_id,
-                }
+                signals.wallet_credited.send(sender=self,amount=amount, trans_ref=transaction_ref,wallet_record_id = action_id , **kwargs)
+                return {"success": True,"prev_wlt_bal": prev_wlt_bal,"new_wlt_bal": new_wlt_bal,"wlt_record_id": action_id,}
 
-    """To DO implement it """
-
-    def post_deposit(self, transaction_ref=None, wlt_record_id=None, amount=None):
-        if not self.post_deposit_calls:
-            pass
-        else:
-            pass
-
-    def can_debit(self, amount=None):
-        # check for fees and charges
-        # Check the rights 
-        deductions = get_withdrawal_deductions(wallet=None, amount=amount)
-        total_debit_amount = deductions['total_deductions'] + amount
-        if total_debit_amount > self.available_balance:
-            return {"status": 1, "message": f"Insufficent funds available to carry out the transaction{total_debit_amount}"}
-        return {"status": 0, "message": ""}
-
-    def withdraw(
-        self,
-        amount=None,
-        overdraw=False,
-        transaction_ref=None,
-        narration=None,
-        **kwargs
-    ):
+    @transaction.atomic()
+    def debit(self,amount=None, overdraw=False, transaction_ref=None,narration=None, **kwargs ):
+        amount = float(amount)
         if amount <= 0:
             return {
                 "success": False,
@@ -97,10 +58,7 @@ class Wallet(GlobalBaseModel):
             }
         else:
             if amount > self.available_balance and overdraw is False:
-                return {
-                    "success": False,
-                    "message": "Sorry cannot withdray amounts greater than the available balance",
-                }
+                return {"success": False,"message": "Sorry cannot withdray amounts greater than the available balance",}
             else:
                 if not narration:
                     narration = "Withdrawal from account"
@@ -110,81 +68,26 @@ class Wallet(GlobalBaseModel):
                 next_wlt_bal = self.balance
                 self.save()
                 action_recorder = self.get_action_recorder()
-                action_id = action_recorder.record_wirdrawal(
+                action_id = action_recorder.record_debit(
                     amount=amount,
                     transaction_ref=transaction_ref,
                     wallet_ref=self.wallet_ref,
                     narration=narration,
                     wallet_bal=next_wlt_bal
-                )   
-                
-                return {
-                    "success": True,
-                    "prev_wlt_bal": prev_wlt_bal,
-                    "next_wlt_bal": next_wlt_bal,
-                    "wlt_record_id": action_id,
-                }
-
-    def debit(self,amount=None,overdraw=False,transaction_ref=None,narration=None,**kwargs):
-        if amount <= 0:
-            return {
-                "success": False,
-                "message": "Sorry cannot withdray amounts less than 0",
-            }
-        else:
-            if amount > self.available_balance and overdraw is False:
-                return {
-                    "success": False,
-                    "message": "Sorry cannot withdray amounts greater than the available balance",
-                }
-            else:
-                if not narration:
-                    narration = "Withdrawal from account"
-                prev_wlt_bal = self.balance
-                self.balance = prev_wlt_bal - amount
-                self.available_balance = prev_wlt_bal - amount - self.lien_amount
-                next_wlt_bal = self.balance
-                self.save()
-                action_recorder = self.get_action_recorder()
-                action_id = action_recorder.record_wirdrawal(
-                    amount=amount,
-                    transaction_ref=transaction_ref,
-                    wallet_ref=self.wallet_ref,
-                    narration=narration,
-                    wallet_bal=next_wlt_bal
-                )
-                return {
-                    "success": True,
-                    "prev_wlt_bal": prev_wlt_bal,
-                    "next_wlt_bal": next_wlt_bal,
-                    "wlt_record_id": action_id,
-                }
-
-
-    def withdraw2(self,amount=None,overdraw=False, transaction_ref=None, narration=None, **kwargs ):
-            chargable = kwargs["chargable"]
-            if not chargable:
-                self.debit(self,amount=amount,overdraw=overdraw,transaction_ref=transaction_ref,narration=narration,**kwargs)
-            charge_mode = kwargs["charge_mode"]
-            deductions = get_withdrawal_deductions(wallet=None, amount=amount)
-            total_debit_amount = deductions['total_deductions'] + amount
-            if total_debit_amount > self.available_balance:
-                return {"status": 1, "message": f"Insufficent funds available to carry out the transaction{total_debit_amount}"}
-            return {"status": 0, "message": ""}
-
+                )      
+                return {"success": True,"prev_wlt_bal": prev_wlt_bal,"next_wlt_bal": next_wlt_bal,"wlt_record_id": action_id}
 
     def add_lien(self, amount=None):
+        amount = float(amount)
         if amount <= 0:
-            return {
-                "success": False,
-                "message": "Sorry cannot transact amounts less than 0",
-            }
+            return {"success": False,"message": "Sorry cannot transact amounts less than 0"}
         else:
             self.lien_amount = self.lien_amount + amount
             self.available_balance = self.balance - self.lien_amount
             self.save()
 
     def release_lien(self, amount=None):
+        amount = float(amount)
         if amount <= 0:
             return "Sorry cannot transact amounts less than 0"
         else:
@@ -195,11 +98,16 @@ class Wallet(GlobalBaseModel):
                 self.available_balance = self.balance + amount
                 self.save()
 
-    def freeze(self):
-        pass
+    
+    def get_action_recorder(self):
+        return WalletRecords()
 
 
-class WalletRecords(models.Model):
+class Wallet(BaseWallet):
+    pass
+
+
+class WalletRecords(GlobalBaseModel):
     wallet_ref = models.CharField(max_length=500, blank=True, null=True)
     record_type = models.CharField(max_length=300, blank=True, null=True)
     record_amount = models.FloatField(default=0.00)
@@ -209,10 +117,10 @@ class WalletRecords(models.Model):
     related_source = models.CharField(max_length=500, blank=True, null=True)
     related_source_ref = models.CharField(max_length=500, blank=True, null=True)
 
-    class Meta:
-        abstract = True
+    # class Meta:
+    #     abstract = True
 
-    def record_deposit(self, amount=None, transaction_ref=None, narration=None, wallet_ref=None, wallet_bal=None):
+    def record_credit(self, amount=None, transaction_ref=None, narration=None, wallet_ref=None, wallet_bal=None):
         self.record_type = "CRE"
         self.record_amount = amount
         self.transaction_ref = transaction_ref
@@ -222,7 +130,7 @@ class WalletRecords(models.Model):
         self.save()
         return self.id
 
-    def record_wirdrawal(self, amount=None, transaction_ref=None, narration=None, wallet_ref=None, wallet_bal=None):
+    def record_debit(self, amount=None, transaction_ref=None, narration=None, wallet_ref=None, wallet_bal=None):
         self.record_type = "DEB"
         self.record_amount = amount
         self.transaction_ref = transaction_ref
@@ -233,102 +141,27 @@ class WalletRecords(models.Model):
         return self.id
 
 
-class NormalWalletRecords(WalletRecords):
-    pass
-
-
-class LoanWalletRecords(WalletRecords):
-    pass
-
-
-class LedgerWalletRecords(WalletRecords):
-    pass
-
-
-class NormalWallet(Wallet):
-    cin = models.ManyToManyField(CINRegistry)
-
-    def get_action_recorder(self):
-        return NormalWalletRecords()
-
-
-class LoanWallet(Wallet):
-    cin = models.ManyToManyField(CINRegistry)
-
-    def get_action_recorder(self):
-        return LoanWalletRecords()
-
-
-class LedgerWallet(Wallet):
-    cin = models.ForeignKey(CINRegistry, on_delete=models.CASCADE, blank=True, null=True) 
-
-    def get_action_recorder(self):
-        return LedgerWalletRecords()
-
-    
-    def get_transaction_record(self, client_ref=None, wallet_record_id=None):
-        return LedgerWalletRecords.objects.get(id=wallet_record_id)
-
-class LoansDirectory(Wallet):
-    loan_ref = models.CharField(max_length=300, blank=True, null=True)
-    loan_wallet = models.OneToOneField(
-        LoanWallet, on_delete=models.CASCADE, primary_key=True
-    )
-
-
 def wallet_search(wallet_ref=None, return_wallet=True, select_for_update=False):
-    if NormalWallet.objects.filter(wallet_ref=wallet_ref).exists():
+    if Wallet.objects.filter(wallet_ref=wallet_ref).exists():
         if return_wallet and select_for_update:
-            wallet = NormalWallet.objects.select_for_update().get(wallet_ref=wallet_ref)
+            wallet = Wallet.objects.select_for_update().get(wallet_ref=wallet_ref)
             return {"status": 0, "wallet": wallet}
         elif return_wallet:
-            wallet = NormalWallet.objects.get(wallet_ref=wallet_ref)
+            wallet = Wallet.objects.get(wallet_ref=wallet_ref)
             return {"status": 0, "wallet": wallet}
         else:
             return {"status": 0, "message": "Normal Wallet exists"}
 
-    elif LoanWallet.objects.filter(wallet_ref=wallet_ref).exists():
-        if return_wallet and select_for_update:
-            wallet = LoanWallet.objects.select_for_update().get(wallet_ref=wallet_ref)
-            return {"status": 0, "wallet": wallet}
-        elif return_wallet:
-            wallet = LoanWallet.objects.get(wallet_ref=wallet_ref)
-            return {"status": 0, "wallet": wallet}
-        else:
-            return {"status": 0, "message": "Loan Wallet exists"}
-
-    elif LedgerWallet.objects.filter(wallet_ref=wallet_ref).exists():
-        if return_wallet and select_for_update:
-            wallet = LedgerWallet.objects.select_for_update().get(wallet_ref=wallet_ref)
-            return {"status": 0, "wallet": wallet}
-        elif return_wallet:
-            wallet = LedgerWallet.objects.get(wallet_ref=wallet_ref)
-            return {"status": 0, "wallet": wallet}
-        else:
-            return {"status": 0, "message": "Ledger Wallet exists"}
-    else:
-        return {"status": 1, "message": "Wallet does not exist"}
-
-
-class Transactions(models.Model):
+class Transactions(GlobalBaseModel):
     transaction_ref = models.CharField(max_length=300, blank=True, null=True)
     debit_part_trans = models.IntegerField(default=1, blank=True, null=True)
     credit_part_trans = models.IntegerField(default=1, blank=True, null=True)
     initiated_by = models.CharField(max_length=300, blank=True, null=True)
     approved_by = models.CharField(max_length=300, blank=True, null=True)
-
+    
     creation_timestamp = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 
-    def transact(
-        self,
-        debit_wallet_ref=None,
-        credit_wallet_ref=None,
-        amount=None,
-        debit_narration=None,
-        credit_narration=None,
-        **kwargs
-    ):
-
+    def transact(self,debit_wallet_ref=None,credit_wallet_ref=None, amount=None, debit_narration=None, credit_narration=None, **kwargs):
         amount = float(amount)
         if amount <= 0:
             return {
@@ -354,7 +187,7 @@ class Transactions(models.Model):
                     self.transaction_ref = transaction_ref
 
                     debit_wallet = debit_wallet_search["wallet"]
-                    debit_trans_records = debit_wallet.withdraw(
+                    debit_trans_records = debit_wallet.debit(
                         amount=amount,
                         overdraw=True,
                         transaction_ref=transaction_ref,
@@ -372,7 +205,7 @@ class Transactions(models.Model):
 
                     """Credit Part"""
                     credit_wallet = credit_wallet_search["wallet"]
-                    credit_trans_records = credit_wallet.deposit(
+                    credit_trans_records = credit_wallet.credit(
                         amount=amount,
                         transaction_ref=transaction_ref,
                         narration=credit_narration,
@@ -391,19 +224,9 @@ class Transactions(models.Model):
 
     """Single debit multiple credits"""
 
-    def batch_credit(
-        self,
-        debit_wallet_ref=None,
-        debit_amount=None,
-        debit_narration=None,
-        overdraw=None,
-        credit_details=None,
-        batch_credit_narration=None,
-        allow_partial_processing=False,
-        **kwargs
-    ):
+    def batch_credit( self, debit_wallet_ref=None, debit_amount=None, debit_narration=None, overdraw=None, credit_details=None, batch_credit_narration=None, **kwargs):
         credit_sum = sum_batch_records(batch_list=credit_details)
-        if credit_sum != debit_amount:
+        if float(credit_sum) != float(debit_amount):
             return {"status": 1, "message": "Sorry Transaction imbalanced"}
         else:
             """Check wallet validiy"""
@@ -434,7 +257,7 @@ class Transactions(models.Model):
                         self.transaction_ref = transaction_ref
 
                         debit_wallet = debit_wallet_search["wallet"]
-                        debit_trans_records = debit_wallet.withdraw(
+                        debit_trans_records = debit_wallet.debit(
                             amount=trans_sum,
                             overdraw=True,
                             transaction_ref=transaction_ref,
@@ -463,7 +286,7 @@ class Transactions(models.Model):
                                 select_for_update=True,
                             )
                             credit_wallet = credit_wallet_srch_dtls["wallet"]
-                            credit_trans_records = credit_wallet.deposit(
+                            credit_trans_records = credit_wallet.credit(
                                 amount=wallet_details["amount"],
                                 transaction_ref=transaction_ref,
                                 narration=credit_narration,
@@ -481,24 +304,18 @@ class Transactions(models.Model):
                                 wallet_action="CRE",
                             )
                             self.save()
-                            batch_sum += wallet_details["amount"]
+                            batch_sum += float(wallet_details["amount"])
                     return {"status": 0, "message": "Batch process succesful"}
 
 
-class TransactionsRecords(models.Model):
+class TransactionsRecords(GlobalBaseModel):
     transaction_ref = models.CharField(max_length=300, blank=True, null=True)
     wallet_ref = models.CharField(max_length=300, blank=True, null=True)
     wallet_action = models.CharField(max_length=300, blank=True, null=True)
     wallet_record_id = models.CharField(max_length=300, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 
-    def record_part_tran(
-        self,
-        transaction_ref=None,
-        wallet_ref=None,
-        wallet_record_id=None,
-        wallet_action=None,
-    ):
+    def record_part_tran(self, transaction_ref=None, wallet_ref=None,  wallet_record_id=None, wallet_action=None):
         self.transaction_ref = transaction_ref
         self.wallet_ref = wallet_ref
         self.wallet_record_id = wallet_record_id
@@ -509,7 +326,7 @@ class TransactionsRecords(models.Model):
 def sum_batch_records(batch_list=None):
     batch_sum = 0.0
     for batch_item in batch_list:
-        batch_sum += batch_item["amount"]
+        batch_sum += float(batch_item["amount"])
     return batch_sum
 
 
@@ -521,3 +338,51 @@ def get_withdrawal_deductions(wallet=None):
     withdrwl_penalty = 200
     total_deductions = withdrwl_fee + withdrwl_penalty
     return {"withdrawal_fee": withdrwl_fee, "withdrwl_penalty": withdrwl_penalty, "total_deductions": total_deductions}
+
+
+""""Start of payments models """
+class PaymentsTransactionMonitor(GlobalBaseModel):
+    wallet_record = models.OneToOneField(WalletRecords, on_delete=models.CASCADE)
+    wallet_ref = models.CharField(max_length=100)
+    initiate_payment = models.BooleanField(default=True)
+    payment_inintiated = models.BooleanField(default=False)
+    payment_status = models.CharField(max_length=100)
+    destination_ref = models.CharField(max_length=100, blank=True, null=True)
+
+
+class WalletPaymentsDetails(GlobalBaseModel):
+    wallet_ref = models.CharField(max_length=100)
+    provider = models.CharField(max_length=100)
+
+class WalletPaymentsRecords(GlobalBaseModel):
+    """Request details"""
+    amount = models.CharField(max_length=300)
+    payment_dest = models.CharField(max_length=300)
+    internal_request_id = models.CharField(max_length=300)
+    creation_timestamp = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    """Response details"""
+    response_payload = models.CharField(max_length=1000, blank=True, null=True)
+    response_timestamp = models.DateTimeField(blank=True, null=True)
+    response_id = models.CharField(max_length=300, blank=True, null=True)
+    respone_status = models.CharField(max_length=300, blank=True, null=True) #success, failed    
+    """Result details """
+    result_payload = models.CharField(max_length=1000, blank=True, null=True)
+    result_timestamp = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        abstract = True
+
+class MpesaPaymentsRecords(WalletPaymentsRecords):
+    pass
+
+"""To be implemented """
+# class AirtelMoneyPaymentsRecords(WalletPaymentsRecords):
+#     pass
+
+# class UnBoundWalletPaymentsRecords(GlobalBaseModel):
+#     """Records received when there is no initiation of a transaction"""
+#     result_payload = models.CharField(max_length=1000, blank=True, null=True)
+#     result_timestamp = models.DateTimeField(blank=True, null=True)
+
+#     class Meta:
+#         abstract = True

@@ -11,6 +11,7 @@ class GlobalBaseManager(models.Manager):
 
 
 class GlobalBaseModel(models.Model):
+    creation_timestamp = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     deleted_at = models.DateTimeField(null=True, default=None)
     objects = GlobalBaseManager()
     all_objects = models.Manager()

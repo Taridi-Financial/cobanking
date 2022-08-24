@@ -49,3 +49,14 @@ def add_user(request):
         return Response(status=status.HTTP_200_OK, data=serializer.data)
 
     return Response(data=serializer.errors, status=HTTP_400_BAD_REQUEST)
+
+
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([])
+def login(request):
+    name = request.data["name"]
+    password = request.data["password"]
+    return Response(status=status.HTTP_200_OK, data="serializer.data")
+
+    return Response(data=serializer.errors, status=HTTP_400_BAD_REQUEST)
