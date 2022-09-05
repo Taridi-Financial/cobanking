@@ -16,7 +16,7 @@ class BaseWallet(GlobalBaseModel):
     balance = models.FloatField(default=0.00)
     available_balance = models.FloatField(default=0.00)
     lien_amount = models.FloatField(default=0.00)
-    allow_overdraw = models.BooleanField(default=False)
+    allow_overdraw = models.BooleanField(default=False)   #closed, dormant, pending, active
     status = models.CharField(max_length=300)
     class Meta:
         abstract = True
@@ -305,7 +305,7 @@ class Transactions(GlobalBaseModel):
                             )
                             self.save()
                             batch_sum += float(wallet_details["amount"])
-                    return {"status": 0, "message": "Batch process succesful"}
+                    return {"status": 0, "message": "Batch process succesful", 'trans_ref':self.id}
 
 
 class TransactionsRecords(GlobalBaseModel):
@@ -313,7 +313,6 @@ class TransactionsRecords(GlobalBaseModel):
     wallet_ref = models.CharField(max_length=300, blank=True, null=True)
     wallet_action = models.CharField(max_length=300, blank=True, null=True)
     wallet_record_id = models.CharField(max_length=300, blank=True, null=True)
-    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
 
     def record_part_tran(self, transaction_ref=None, wallet_ref=None,  wallet_record_id=None, wallet_action=None):
         self.transaction_ref = transaction_ref
@@ -330,7 +329,6 @@ def sum_batch_records(batch_list=None):
     return batch_sum
 
 
-
 def get_withdrawal_deductions(wallet=None):
     """To do- get the charges from the code and the account"""
     scheme_code = wallet.scheme_code
@@ -338,51 +336,3 @@ def get_withdrawal_deductions(wallet=None):
     withdrwl_penalty = 200
     total_deductions = withdrwl_fee + withdrwl_penalty
     return {"withdrawal_fee": withdrwl_fee, "withdrwl_penalty": withdrwl_penalty, "total_deductions": total_deductions}
-
-
-""""Start of payments models """
-class PaymentsTransactionMonitor(GlobalBaseModel):
-    wallet_record = models.OneToOneField(WalletRecords, on_delete=models.CASCADE)
-    wallet_ref = models.CharField(max_length=100)
-    initiate_payment = models.BooleanField(default=True)
-    payment_inintiated = models.BooleanField(default=False)
-    payment_status = models.CharField(max_length=100)
-    destination_ref = models.CharField(max_length=100, blank=True, null=True)
-
-
-class WalletPaymentsDetails(GlobalBaseModel):
-    wallet_ref = models.CharField(max_length=100)
-    provider = models.CharField(max_length=100)
-
-class WalletPaymentsRecords(GlobalBaseModel):
-    """Request details"""
-    amount = models.CharField(max_length=300)
-    payment_dest = models.CharField(max_length=300)
-    internal_request_id = models.CharField(max_length=300)
-    creation_timestamp = models.DateTimeField(auto_now_add=True, blank=True, null=True)
-    """Response details"""
-    response_payload = models.CharField(max_length=1000, blank=True, null=True)
-    response_timestamp = models.DateTimeField(blank=True, null=True)
-    response_id = models.CharField(max_length=300, blank=True, null=True)
-    respone_status = models.CharField(max_length=300, blank=True, null=True) #success, failed    
-    """Result details """
-    result_payload = models.CharField(max_length=1000, blank=True, null=True)
-    result_timestamp = models.DateTimeField(blank=True, null=True)
-
-    class Meta:
-        abstract = True
-
-class MpesaPaymentsRecords(WalletPaymentsRecords):
-    pass
-
-"""To be implemented """
-# class AirtelMoneyPaymentsRecords(WalletPaymentsRecords):
-#     pass
-
-# class UnBoundWalletPaymentsRecords(GlobalBaseModel):
-#     """Records received when there is no initiation of a transaction"""
-#     result_payload = models.CharField(max_length=1000, blank=True, null=True)
-#     result_timestamp = models.DateTimeField(blank=True, null=True)
-
-#     class Meta:
-#         abstract = True

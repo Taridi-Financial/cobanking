@@ -18,5 +18,5 @@ class Branches(GlobalBaseModel):
     branch_code = models.CharField(max_length=100, blank=True, null=True)
     status = models.CharField(max_length=100, blank=True, null=True)
     client = models.ForeignKey(Clients, on_delete=models.CASCADE)
-    created_at = models.DateTimeField(auto_now_add=True)
+    # created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now_add=True)

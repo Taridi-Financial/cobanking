@@ -13,3 +13,9 @@ class ClientsAddSerializer(serializers.ModelSerializer):
     class Meta:
         model = Clients
         fields = ("identifying_number",  "client_name", "address")
+
+
+class ClientsUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Clients
+        fields = ( "client_name", "address")

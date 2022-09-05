@@ -1,3 +1,4 @@
+from cbsaas.ibase.services.helpers import format_response, get_model
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
@@ -8,7 +9,7 @@ from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
 from ..models import Clients
 from ..services.operations import add_client
-from .serializers import ClientsAddSerializer, ClientsAllSerializer
+from .serializers import ClientsAddSerializer, ClientsAllSerializer, ClientsUpdateSerializer
 
 
 @api_view(["POST"])
@@ -49,12 +50,38 @@ def add_new_client(request):
 @authentication_classes([])
 @permission_classes([])
 def view_client(request, client_id):
-    try:
-        client = Clients.objects.get(id=client_id)
-    except Exception:
-        return Response(
-            {"status": 1, "message": "Client not found"}, status=HTTP_400_BAD_REQUEST
-        )
-    else:
-        serializer = ClientsAllSerializer(client)
-        return Response({"client_details": serializer.data}, status=HTTP_200_OK)
+    client = get_model(client_id, "clients")
+    if not client:
+        return format_response(code=400, message="Client not found")
+    serializer = ClientsAllSerializer(client)
+    return format_response(code=200, message=serializer.data)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([])
+def update_client(request, client_id):
+    client = get_model(client_id, "clients")
+    if not client:
+        return format_response(code=400, message="Client not found")
+    serializer = ClientsAddSerializer(instance=client,data=request.data)
+    if not serializer.is_valid():
+        return format_response(code=400, message=serializer.errors)
+    serializer.save()
+    return format_response(code=200, message=serializer.errors)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([])
+def vvvview_client(request, client_id):
+    client = get_model(client_id, "clients")
+    if not client:
+        return format_response(code=400, message="Client not found")
+    serializer = ClientsAllSerializer(client)
+    return format_response(code=200, message=serializer.data)
+
+
+
+
+

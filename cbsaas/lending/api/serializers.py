@@ -1,4 +1,4 @@
-from cbsaas.lending.models import MobileLoanProduct, MobileLoanProductCharges
+from cbsaas.lending.models import MobileLoanProduct, MobileLoanProductCharges, MobileLoans
 from rest_framework import serializers
 
 from cbsaas.banking.models import Wallet
@@ -19,6 +19,10 @@ class RepayMobileLoanSerializer(serializers.Serializer):
     amount= serializers.CharField(allow_blank=False, max_length=100)
     source_wlt =serializers.CharField(allow_blank=False, max_length=100) 
 
+class ApproveMobileLoanSerializer(serializers.Serializer):
+    loan_ref = serializers.CharField(allow_blank=False, max_length=100)
+    action= serializers.CharField(allow_blank=False, max_length=100)
+
 class WalletAllSerializer(serializers.ModelSerializer):
     class Meta:
         model = Wallet
@@ -27,6 +31,11 @@ class WalletAllSerializer(serializers.ModelSerializer):
 class CreateMobileLoanProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = MobileLoanProduct
+        fields = ('__all__')
+
+class MobileLoansAllSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MobileLoans
         fields = ('__all__')
 
 class CreateMobileLoanProductChargeSerializer(serializers.ModelSerializer):

@@ -9,10 +9,14 @@ class GlobalBaseManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(deleted_at__isnull=True)
 
+    def client_querry(self, client_ref=None):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
 
 class GlobalBaseModel(models.Model):
     creation_timestamp = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     deleted_at = models.DateTimeField(null=True, default=None)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     objects = GlobalBaseManager()
     all_objects = models.Manager()
 

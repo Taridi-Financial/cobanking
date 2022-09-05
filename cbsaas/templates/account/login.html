@@ -1,7 +1,7 @@
 {% extends "account/base.html" %}
 
 {% load i18n %}
-{% load account socialaccount %}
+<!-- {% load account socialaccount %} -->
 {% load crispy_forms_tags %}
 
 {% block head_title %}{% translate "Sign In" %}{% endblock %}
@@ -10,9 +10,9 @@
 
 <h1>{% translate "Sign In" %}</h1>
 
-{% get_providers as socialaccount_providers %}
+<!-- {% get_providers as socialaccount_providers %} -->
 
-{% if socialaccount_providers %}
+<!-- {% if socialaccount_providers %}
   <p>
     {% translate "Please sign in with one of your existing third party accounts:" %}
     {% if ACCOUNT_ALLOW_REGISTRATION %}
@@ -35,7 +35,7 @@
 
   {% include "socialaccount/snippets/login_extra.html" %}
 
-{% else %}
+{% else %} -->
   {% if ACCOUNT_ALLOW_REGISTRATION %}
     <p>
       {% blocktranslate trimmed %}

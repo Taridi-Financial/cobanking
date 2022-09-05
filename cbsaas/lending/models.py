@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils.timezone import now
+from cbsaas.banking.models import WalletRecords
+from cbsaas.cin.models import CINRegistry
 from cbsaas.clients.models import Clients
 from cbsaas.ibase.models import GlobalBaseModel
 
@@ -12,8 +14,8 @@ class Loan(GlobalBaseModel):
     client_ref = models.CharField(max_length=300, blank=True, null=True)
     loan_type_code = models.CharField(max_length=100)
     loan_ref = models.CharField(max_length=100, blank=True,null=True)
-    applied_amount = models.CharField(max_length=100)
-    amount_disbursed = models.CharField(max_length=100, default=0)
+    applied_amount = models.FloatField(default=0.00)
+    amount_disbursed = models.FloatField(default=0.00)
     loan_status = models.CharField(max_length=100)  #preapplication, pending, 
     applied_by = models.CharField(max_length=100)
     approved_by = models.CharField(max_length=100, blank=True,null=True)
@@ -22,10 +24,17 @@ class Loan(GlobalBaseModel):
     date_cleared=models.DateField(blank=True,null=True)
     loan_wallet_ref = models.CharField(max_length=100, blank=True,null=True)
     disbursment_trans_ref = models.CharField(max_length=100, blank=True,null=True)
-    dsbsment_credit_part_tran = models.CharField(max_length=100, blank=True,null=True) 
+    disbursment_credit_part_tran = models.CharField(max_length=100, blank=True,null=True) 
+    penalty_start = models.DateTimeField(blank=True,null=True)
+    penalty_end = models.DateTimeField(blank=True,null=True)
+    unrealized_interest = models.FloatField(default=0.00)
+
 
     class Meta:
         abstract = True
+
+    def calculate_charge(self, amount=None):
+        pass
 
 class MobileLoans(Loan):  
     pass
@@ -36,8 +45,12 @@ class LoanProduct(GlobalBaseModel):
     loan_code = models.CharField(max_length=100)
     description = models.CharField(max_length=100)
     duration = models.CharField(max_length=100) 
-    lower_limit = models.CharField(max_length=100, default=0)
-    upper_limit = models.CharField(max_length=100)
+    lower_limit = models.FloatField(default=0.00)
+    upper_limit = models.FloatField(default=0.00)
+    interest_realization = models.CharField(max_length=30, blank=True, null=True) #first, prorated
+    loan_period = models.CharField(max_length=30, blank=True, null=True) #in days 
+    penalty_period = models.CharField(max_length=20, blank=True, null=True) #in days
+    penalty_grace_period = models.CharField(max_length=20, blank=True, null=True) #in days
 
     class Meta:
         abstract = True
@@ -48,8 +61,8 @@ class MobileLoanProduct(LoanProduct):
 class LoanProductCharges(GlobalBaseModel):  
     loan_code = models.CharField(max_length=100, blank=True, null=True)
     charge_code = models.CharField(max_length=100, blank=True, null=True)
-    charge_frequency = models.CharField(max_length=100, default="oneoff") #One off, recurring
-    charge_moment = models.CharField(max_length=100) #precreation, predisbursment, postdisbursment, oninterest, ondefault
+    charge_frequency = models.CharField(max_length=100, default="oneoff") #One off, daily, weekly, monthly
+    charge_moment = models.CharField(max_length=100) #precreation, predisbursment, postdisbursment, interest, ondefault
     charge_value_type = models.CharField(max_length=100) # fixed, percentage
     charge_value = models.CharField(max_length=100) 
     charge_destination = models.CharField(max_length=100, null=True) 
@@ -69,21 +82,40 @@ class LoanProductCharges(GlobalBaseModel):
 class MobileLoanProductCharges(LoanProductCharges):  
     mobile_loan_product = models.ForeignKey(MobileLoanProduct, on_delete=models.CASCADE)
 
-class LoansActions(GlobalBaseModel):  
-    loan_ref =  models.CharField(max_length=100, blank=True, null=True) 
-    action_code = models.CharField(max_length=100, blank=True, null=True)
-    narration = models.CharField(max_length=100, blank=True, null=True)
-    action_value = models.CharField(max_length=100, blank=True, null=True) 
+# class LoansActions(GlobalBaseModel):  
+#     loan_ref =  models.CharField(max_length=100, blank=True, null=True) 
+#     action_by = models.CharField(max_length=100, blank=True, null=True)
+#     narration = models.CharField(max_length=100, blank=True, null=True)
+#     action_value = models.CharField(max_length=100, blank=True, null=True) 
+#    
     
 
-    class Meta:
-        abstract = True
+#     class Meta:
+#         abstract = True
 
-class MobileLoanActions(LoansActions):   
-    pass
+# class MobileLoanActions(LoansActions):   
+#     pass
 
 
-def disurse(loan=None,debit_amount=None, credit_details=None):
-    pass
+# def disurse(loan=None,debit_amount=None, credit_details=None):
+#     pass
 
+# # class LoansLimits(GlobalBaseModel):  
+# #     cin = models.ForeignKey(CINRegistry, on_delete=models.CASCADE, blank=True, null=True) 
+
+
+class LoanAmotization(GlobalBaseModel):  
+    loan_ref =  models.CharField(max_length=100) 
+    due_date = models.CharField(max_length=100)
+    amount_due= models.FloatField(default=0.00)
+    amount_paid = models.FloatField(default=0.00)
+    payment_status = models.CharField(max_length=100)
+    client = models.ForeignKey(Clients, on_delete=models.CASCADE)
+    updated_at = models.DateTimeField(blank=True, null=True)
+
+
+class LoanAmotizationPayments(GlobalBaseModel):  
+    wallet_record = models.OneToOneField(WalletRecords, on_delete=models.CASCADE)
+    loan_amotization_entry = models.ForeignKey(LoanAmotization, on_delete=models.CASCADE)
+    amount =  models.FloatField(default=0.00)
 
