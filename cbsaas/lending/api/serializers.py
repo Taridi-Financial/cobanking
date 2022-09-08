@@ -1,4 +1,4 @@
-from cbsaas.lending.models import MobileLoanProduct, MobileLoanProductCharges, MobileLoans
+from cbsaas.lending.models import LoanProduct, LoanProductCharges, Loan
 from rest_framework import serializers
 
 from cbsaas.banking.models import Wallet
@@ -14,12 +14,12 @@ class ApplyMobileLoanSerializer(serializers.Serializer):
     amount= serializers.CharField(allow_blank=False, max_length=100)
     loan_code=serializers.CharField(allow_blank=False, max_length=100)
 
-class RepayMobileLoanSerializer(serializers.Serializer):
+class RepayLoanerializer(serializers.Serializer):
     loan_ref = serializers.CharField(allow_blank=False, max_length=100)
     amount= serializers.CharField(allow_blank=False, max_length=100)
     source_wlt =serializers.CharField(allow_blank=False, max_length=100) 
 
-class ApproveMobileLoanSerializer(serializers.Serializer):
+class ApproveLoanerializer(serializers.Serializer):
     loan_ref = serializers.CharField(allow_blank=False, max_length=100)
     action= serializers.CharField(allow_blank=False, max_length=100)
 
@@ -28,17 +28,17 @@ class WalletAllSerializer(serializers.ModelSerializer):
         model = Wallet
         fields = ('__all__')
 
-class CreateMobileLoanProductSerializer(serializers.ModelSerializer):
+class CreateLoanProductSerializer(serializers.ModelSerializer):
     class Meta:
-        model = MobileLoanProduct
+        model = LoanProduct
         fields = ('__all__')
 
-class MobileLoansAllSerializer(serializers.ModelSerializer):
+class LoanAllSerializer(serializers.ModelSerializer):
     class Meta:
-        model = MobileLoans
+        model = Loan
         fields = ('__all__')
 
-class CreateMobileLoanProductChargeSerializer(serializers.ModelSerializer):
+class CreateLoanProductChargeserializer(serializers.ModelSerializer):
     class Meta:
-        model = MobileLoanProductCharges
+        model = LoanProductCharges
         fields = ('__all__')

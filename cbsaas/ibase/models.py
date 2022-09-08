@@ -9,7 +9,7 @@ class GlobalBaseManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(deleted_at__isnull=True)
 
-    def client_querry(self, client_ref=None):
+    def tenant_querry(self, client_ref=None):
         return super().get_queryset().filter(deleted_at__isnull=True)
 
 
@@ -30,6 +30,5 @@ class GlobalBaseModel(models.Model):
     def restore(self):
         self.deleted_at = None
         self.save()
-
     class Meta:
         abstract = True

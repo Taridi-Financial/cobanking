@@ -18,7 +18,7 @@ class User(AbstractUser):
     name = CharField(_("Name of User"), blank=True, max_length=255)
     email = models.CharField(max_length=255)
     USERNAME_FIELD: email
-    client = models.ForeignKey(Clients, on_delete=models.CASCADE)
+    client = models.ForeignKey(Clients, on_delete=models.CASCADE, default=1)
     cin = models.OneToOneField(CINRegistry, on_delete=models.SET_NULL, blank=True, null=True)
     phone = models.CharField(max_length=100) 
     physical_address = models.CharField(max_length=100,default=0,blank=True,null=True) 

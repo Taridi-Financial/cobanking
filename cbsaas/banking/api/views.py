@@ -12,7 +12,7 @@ from cbsaas.banking.api.serializers import AddWalletSerializer, WalletAllSeriali
 from cbsaas.banking.models import Wallet, WalletRecords, Transactions
 from cbsaas.banking.services.operations import create_wallet, get_transaction_details, wallet_search
 from cbsaas.clients.models import Clients
-
+from drf_spectacular.utils import extend_schema
 
 
 @api_view(["POST"])
@@ -31,6 +31,7 @@ def deposit_funds(request):
 @authentication_classes([])
 @permission_classes([])
 def add_wallet(request):
+    """Parameters client_ref, wallet_name, wallet_type,scheme_code"""
     serializer = AddWalletSerializer(data=request.data)
     if serializer.is_valid():
         client_ref=serializer.data['client_ref']
@@ -111,11 +112,13 @@ def delete_wallet(request):
 
 
 @api_view(["GET"])
-@authentication_classes([])
-@permission_classes([])
+# @authentication_classes([])
+# @permission_classes([])
 def view_wallets(request):
+    print('fffffffffffffffffffffffffffffffffffffffffkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkllllllllllllllllllllllll')
+    print(request.user.id)
     celery_test_print.delay()
-    wallets = Wallet.objects.all().order_by("-id")
+    wallets = Wallet.objects.tenant_querry(client_ref=None).all().order_by("-id")
     serializer = WalletAllSerializer(wallets, many=True)
     return Response({'wallets': serializer.data},
                     status=HTTP_200_OK)

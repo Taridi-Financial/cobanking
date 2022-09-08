@@ -1,6 +1,6 @@
 import random
 
-from cbsaas.banking.models import Wallet, Wallet, Wallet, Transactions
+from cbsaas.banking.models import LienEntries, Wallet, Wallet, Wallet, Transactions
 from cbsaas.cin.services.operations import get_client_cin
 
 def single_transact(
@@ -104,3 +104,29 @@ def wallet_search(wallet_ref=None, return_wallet=True, select_for_update=False):
 
 def get_transaction_details(transaction_ref):
     transaction = Transactions.objects.get(transaction_ref=transaction_ref)
+
+
+
+def add_lien(wallet_ref=None, amount=None, narration=None,done_by=None):
+    wallet_search = wallet_search(wallet_ref=wallet_ref, return_wallet=True)
+    wallet = wallet_search.get("wallet", None)
+    if not wallet:
+        return {"status": 1, "message": "Wallet does not exist"}
+    wallet.add_lien(amount=amount)
+    lien_entry =  LienEntries(wallet_ref = wallet_ref, lien_amount = amount,done_by = done_by, narration = narration )
+    lien_entry.save()
+    return {"status": 0, "lien_entry_id": lien_entry.id}
+
+def release_lien(lien_entry=None, amount=None, done_by=None):
+    wallet_search = wallet_search(wallet_ref=lien_entry.wallet_ref, return_wallet=True)
+    wallet = wallet_search.get("wallet", None)
+    if not wallet:
+        return {"status": 1, "message": "Wallet does not exist"}
+    """if we have amount it means we are lowering the amoun"""
+    if not amount:
+        wallet.release_lien(amount=lien_entry.lien_amount)
+    if amount > lien_entry.lien_amount:
+        return {"status": 1, "message": "Release amount greater than amount held"}
+    wallet.release_lien(amount=amount)
+    lien_entry.lien_amount = (lien_entry.lien_amount-amount)
+    lien_entry.save()

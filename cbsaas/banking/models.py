@@ -336,3 +336,15 @@ def get_withdrawal_deductions(wallet=None):
     withdrwl_penalty = 200
     total_deductions = withdrwl_fee + withdrwl_penalty
     return {"withdrawal_fee": withdrwl_fee, "withdrwl_penalty": withdrwl_penalty, "total_deductions": total_deductions}
+
+
+class LienEntries(GlobalBaseModel):
+    wallet_ref = models.CharField(max_length=300)
+    lien_amount = models.FloatField(default=0.00)
+    narration = models.CharField(max_length=100)
+    done_by = models.CharField(max_length=30, blank=True, null=True)
+    approved_by = models.CharField(max_length=30, blank=True, null=True)
+
+
+    
+    

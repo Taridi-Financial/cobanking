@@ -1,3 +1,4 @@
+from array import array
 from random import choice
 from string import ascii_uppercase
 from cbsaas.banking.models import wallet_search
@@ -5,12 +6,12 @@ from rest_framework import serializers
 from django.db import models
 from cbsaas.banking.services.operations import batch_credit_transact, create_wallet, single_transact
 from cbsaas.ibase.models import GlobalBaseModel
-from cbsaas.lending.models import MobileLoanProductCharges, MobileLoans
+from cbsaas.lending.models import LoanProductCharges, Loan
 from cbsaas.parameters.services.operations import get_wallet_ref_from_code
 
 
 
-class MobileLoansOperations(models.Model):   
+class LoanOperations(models.Model):   
     def __init__(self,**kwargs) -> None:
         self.__dict__.update(kwargs)
         self.operation_status = 0
@@ -24,11 +25,18 @@ class MobileLoansOperations(models.Model):
 
     def set_loan(self):
         """FOR PROCESSING EXISTING LOANS"""
-        loan = MobileLoans.objects.get(loan_ref=self.loan_ref)
+        loan = Loan.objects.get(loan_ref=self.loan_ref)
         self.loan = loan
 
+    def set_loan_wallet(self):
+        """used by methods that manipulate the wallet like zerorize, repay
+           Requires loan to be set 
+        """
+        self.loan_wallet = wallet_search(wallet_ref=self.loan.loan_wallet_ref, return_wallet=True)
+        
 
-    def apply_loan(self, disburse_wallet=None):
+
+    def apply_loan(self, disburse_wallet=None) -> str:
         """0 proceed any other status fail"""
         self.process_preapplication()
         if not self.operation_status > 0:
@@ -43,7 +51,7 @@ class MobileLoansOperations(models.Model):
         return self.operation_msg
 
     def process_preapplication(self):
-        new_loan = MobileLoans()
+        new_loan = Loan()
         new_loan.loan_type_code = self.loan_code
         loan_ref = ''.join(choice(ascii_uppercase)for i in range(15))
         new_loan.loan_ref = loan_ref
@@ -107,7 +115,7 @@ class MobileLoansOperations(models.Model):
             return self.operation_msg
         else:
             batch_msg = batch_process["message"]
-            self.operation_msg = f"Loan disbursment failed reasont reason: {batch_msg}" 
+            self.operation_msg = f"Loan disbursment failed reason reason: {batch_msg}" 
             return self.operation_msg
 
     def create_loan_wallet(self):        
@@ -129,43 +137,57 @@ class MobileLoansOperations(models.Model):
 
     def close_loan(self):
         self.set_loan()
-        loan_wallet = wallet_search(wallet_ref=self.loan.loan_wallet_ref, return_wallet=True)
-        loan_wallet_balance = loan_wallet.balance
+        self.set_loan_wallet()
+        loan_wallet_balance = self.loan_wallet.balance
+        
         if loan_wallet_balance < 0:
-            self.operation_msg = f"Loan not yet paid off, pay off or zerorize the loan wallet before clearing the loan" 
+            self.operation_msg = f"Loan not yet paid off, kindly pay off the loan before closing the loan" 
             return self.operation_msg
         if loan_wallet_balance > 0:
             self.operation_msg = f"Loan not yet zerorized, Zerorize the loan wallet before clearing the loan" 
             return self.operation_msg
         self.loan.loan_status = "closed"
         self.loan.save()
-        loan_wallet.status = 'closed'
-        loan_wallet.save()
+        self.loan_wallet.status = 'closed'
+        self.loan_wallet.save()
         self.operation_msg = f"Loan closed successfully" 
         return self.operation_msg
 
     def zerorize_loan(self, destination_wlt=None):
+        """Called if the loan account balance is > 0, meaning there is an overpayment"""
         self.set_loan()
-        loan_wallet = wallet_search(wallet_ref=self.loan.loan_wallet_ref, return_wallet=True)
-        loan_wallet_balance = loan_wallet.balance
-        narration = f"Zerorization of the loan wallet"
-        trans_dtls = single_transact(debit_wallet_ref=loan_wallet.wallet_ref,credit_wallet_ref=self.loan.loan_wallet_ref,amount=loan_wallet.balance,debit_narration=narration,credit_narration=narration)
-        if trans_dtls["status"] == 0:
-            trans_ref = trans_dtls["trans_ref"]
-            self.operation_msg = f"Loan repayment successful, funds credited with transaction ref: {trans_ref} loan ref: {self.loan_ref}" 
+        self.set_loan_wallet()
+        # loan_wallet = wallet_search(wallet_ref=self.loan.loan_wallet_ref, return_wallet=True)
+        narration = f"Zerorization of the loan wallet {self.loan_wallet.wallet_ref} for loan {self.loan_ref}"
+        trans_dtls = single_transact(debit_wallet_ref=self.loan_wallet.wallet_ref,credit_wallet_ref=destination_wlt,amount=self.loan_wallet.balance,debit_narration=narration,credit_narration=narration)
+        status = trans_dtls["status"]
+        if not status == 0:
+            self.operation_msg = f"Zerorization of loan {self.loan_ref} failed, reason {self.loan_ref}" 
             return self.operation_msg
+        trans_ref = trans_dtls["trans_ref"]
+        self.operation_msg = f"Zerorization of loan successful, funds credited with transaction ref: {trans_ref} loan ref: {self.loan_ref}" 
+        return self.operation_msg
+
+    
+    def process_post_wallet_credit(self):
+        self.set_loan()
+        self.set_loan_wallet()
+        loan_wallet = wallet_search(wallet_ref=self.loan.loan_wallet_ref, return_wallet=True)
+
+    def add_loan_security(self) -> None:
+        pass
 
     
 def get_disbursment_values(loan_code=None, amount=None):
-    charges = MobileLoanProductCharges.objects.filter(loan_code=loan_code)
+    charges = LoanProductCharges.objects.filter(loan_code=loan_code)
     return {"disburse_amount": 1000, "interest": 100,  "loan_amount":1100, "loan_balance":1100 , "principle":1000}
 
 def check_autoapproval(loan_code=None, applicant_cin=None, amount=None):
     return False
 
 
-def calculate_charges(loan_code=None, amount=None):
-    charges = MobileLoanProductCharges.objects.filter(loan_code=loan_code)
+def calculate_charges(loan_code=None, amount=None) -> array:
+    charges = LoanProductCharges.objects.filter(loan_code=loan_code)
     charge_details = []
     for charge in charges:        
         serializer = CalculateChargeSerializer(charge)
@@ -177,7 +199,7 @@ def calculate_charges(loan_code=None, amount=None):
 
 class CalculateChargeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = MobileLoanProductCharges
+        model = LoanProductCharges
         fields = ('__all__')
 
 """TO DO 
@@ -190,7 +212,7 @@ Give the charge and the destination accounts
 
 
 def update_amotization_table(loan_code=None, amount=None):
-    charges = MobileLoanProductCharges.objects.filter(loan_code=loan_code)
+    charges = LoanProductCharges.objects.filter(loan_code=loan_code)
 
 
 

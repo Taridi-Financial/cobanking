@@ -11,7 +11,7 @@ else:
 
 router.register("users", UserViewSet)
 
-app_name = "api"
+app_name = "api router"
 urlpatterns = router.urls
 
 urlpatterns += [
@@ -23,7 +23,6 @@ urlpatterns += [
     path("parameters/", include("cbsaas.parameters.api.urls")),
     path("cb/", include("cbsaas.banking.api.urls")),
     path("lending/", include("cbsaas.lending.api.urls")),
-    path("banking/", include("cbsaas.banking.api.urls")),
     path("customers/", include("cbsaas.customers.api.urls")),
     path("payments/", include("cbsaas.payments.api.urls")),
     path("payments-service/", include("cbsaas.payments_service.api.urls")),
