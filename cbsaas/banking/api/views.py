@@ -115,8 +115,6 @@ def delete_wallet(request):
 # @authentication_classes([])
 # @permission_classes([])
 def view_wallets(request):
-    print('fffffffffffffffffffffffffffffffffffffffffkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkllllllllllllllllllllllll')
-    print(request.user.id)
     celery_test_print.delay()
     wallets = Wallet.objects.tenant_querry(client_ref=None).all().order_by("-id")
     serializer = WalletAllSerializer(wallets, many=True)

@@ -4,7 +4,7 @@ from string import ascii_uppercase
 from cbsaas.banking.models import wallet_search
 from rest_framework import serializers
 from django.db import models
-from cbsaas.banking.services.operations import batch_credit_transact, create_wallet, single_transact
+from cbsaas.banking.services.operations import batch_credit_transact, create_wallet, get_primary_consumer_wallet, single_transact
 from cbsaas.ibase.models import GlobalBaseModel
 from cbsaas.lending.models import LoanProductCharges, Loan
 from cbsaas.parameters.services.operations import get_wallet_ref_from_code
@@ -16,15 +16,19 @@ class LoanOperations(models.Model):
         self.__dict__.update(kwargs)
         self.operation_status = 0
         self.operation_msg = None
+        self.response_status = 0
         """Arguments list
         To apply :
         client_ref=None, amount=None, loan_code=None,phone_number=None,applicant_cin=None, action_by=None, loan_type = standard/mobile
         To aprove update or other actions
-        loan_ref=None
+        loan_ref=None, action_by=
+        operation_status refers to weather to proceed with the command methods or not
+        response_status refers to weather the operation is a success or a failure 
         """        
 
-    def set_loan(self):
+    def set_loan(self, action_by=None):
         """FOR PROCESSING EXISTING LOANS"""
+        """Check if the user has the rights to act on the loan"""
         loan = Loan.objects.get(loan_ref=self.loan_ref)
         self.loan = loan
 
@@ -36,8 +40,8 @@ class LoanOperations(models.Model):
         
 
 
-    def apply_loan(self, disburse_wallet=None) -> str:
-        """0 proceed any other status fail"""
+    def apply_loan(self, disburse_wallet=None) -> dict:
+        """operation_status 0 proceed any other status break and return the current status, For response_status 0 is a success of the action any other it is for a fail """
         self.process_preapplication()
         if not self.operation_status > 0:
             self.set_application_to_pending()
@@ -48,7 +52,7 @@ class LoanOperations(models.Model):
         if not self.operation_status > 0:
             self.disburse_loan(disburse_wallet=disburse_wallet)
        
-        return self.operation_msg
+        return {"response_status": self.response_status, "message": self.operation_msg }
 
     def process_preapplication(self):
         new_loan = Loan()
@@ -58,7 +62,9 @@ class LoanOperations(models.Model):
         new_loan.applied_amount = self.amount
         new_loan.loan_status = "preapplication"
         new_loan.applied_by = self.action_by
-        new_loan.client_ref = self.client_ref
+        new_loan.client_id = self.client_id
+        new_loan.save()
+        new_loan.cin.add(self.applicant_cin)
         new_loan.save()
         self.loan_ref = loan_ref
 
@@ -81,7 +87,7 @@ class LoanOperations(models.Model):
             self.loan.approved_by = action_by
             self.loan.loan_status = "rejected"
             self.loan.save()
-            self.operation_msg = f"Loan application rejected loan ref:: {self.loan_ref}"
+            self.operation_msg = f"Loan application rejected loan ref: {self.loan_ref}"
         
 
     def disburse_loan(self, disburse_wallet=None):
@@ -112,11 +118,12 @@ class LoanOperations(models.Model):
             self.loan.save()
             trans_ref = batch_process["trans_ref"]
             self.operation_msg = f"Loan disbursment successful, funds credited with transaction ref: {trans_ref} loan ref: {self.loan_ref}" 
-            return self.operation_msg
+            return {"response_status": self.response_status, "message": self.operation_msg }
         else:
             batch_msg = batch_process["message"]
             self.operation_msg = f"Loan disbursment failed reason reason: {batch_msg}" 
-            return self.operation_msg
+            self.response_status = 1
+            return {"response_status": self.response_status, "message": self.operation_msg }
 
     def create_loan_wallet(self):        
         loan_wlt_dtls = create_wallet(client_ref=self.loan.client_ref, wallet_name="wen", wallet_type="LOAN")
@@ -138,6 +145,8 @@ class LoanOperations(models.Model):
     def close_loan(self):
         self.set_loan()
         self.set_loan_wallet()
+        destination_wlt = get_primary_consumer_wallet(cin=self.loan.cin)
+        self.zerorize_loan(destination_wlt=destination_wlt)
         loan_wallet_balance = self.loan_wallet.balance
         
         if loan_wallet_balance < 0:
@@ -174,7 +183,7 @@ class LoanOperations(models.Model):
         self.set_loan_wallet()
         loan_wallet = wallet_search(wallet_ref=self.loan.loan_wallet_ref, return_wallet=True)
 
-    def add_loan_security(self) -> None:
+    def add_loan_security(self,loan_code=None, amount=None ) -> None:
         pass
 
     

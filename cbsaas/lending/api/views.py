@@ -1,5 +1,6 @@
+from webbrowser import get
 from cbsaas.ibase.services.authorities import has_view_rights
-from cbsaas.ibase.services.helpers import format_response
+from cbsaas.ibase.services.helpers import format_response, get_cin_from_number
 from cbsaas.lending.api.serializers import ApplyMobileLoanSerializer, ApproveLoanerializer, CreateLoanProductChargeserializer, CreateLoanProductSerializer, LoanAllSerializer, RepayLoanerializer
 from cbsaas.lending.models import Loan
 from cbsaas.lending.services.operations import LoanOperations
@@ -14,8 +15,13 @@ from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 @authentication_classes([])
 @permission_classes([])
 @has_view_rights
-def apply_loan(request):
+def apply_loan(request) -> str:
+    """
+        For mobile applications the person who applies is the person set as the applicant. 
+        For protal applications the person who applies is not the applicant. 
+    """
     serializer = ApplyMobileLoanSerializer(data=request.data)
+    
     if not serializer.is_valid():
         return Response(data=serializer.errors, status=HTTP_400_BAD_REQUEST)
 
@@ -24,8 +30,11 @@ def apply_loan(request):
     amount = serializer.data['amount']
     loan_code = serializer.data['loan_code']
     disburse_wallet = request.data['disburse_wallet']
+    applicant_cin=request.data.get('applicant_cin')
+    client_id = 1
+    applicant_cin = get_cin_from_number(applicant_cin)
 
-    mobile_ln_ops =LoanOperations(phone_number=phone_number,  client_ref=client_ref, amount=amount, loan_code=loan_code)
+    mobile_ln_ops =LoanOperations(phone_number=phone_number,  client_id=client_id, amount=amount, loan_code=loan_code, action_by="system", applicant_cin=applicant_cin)
     resp = mobile_ln_ops.apply_loan(disburse_wallet=disburse_wallet)
     
     return Response({"status": "action_status", "message": resp }, status=HTTP_200_OK)
@@ -80,6 +89,20 @@ def approve_loan(request):
     resp = mobile_ln_ops.approve(action_type=action, action_by="wen")
     return format_response(code=200, message=resp)
 
+@api_view(["POST"])
+@authentication_classes([])
+@permission_classes([])
+def close_loan(request):
+    loan_ref = request.data['loan_ref']
+    mobile_ln_ops =LoanOperations(loan_ref=loan_ref)
+    resp = mobile_ln_ops.close_loan()
+    response_status = resp["response_status"]
+    if not response_status == 0:
+        return format_response(code=200, message=resp)
+    else:
+        return format_response(code=400, message=resp)
+
+    
 
 
 @api_view(["GET"])
@@ -88,11 +111,27 @@ def approve_loan(request):
 def view_loans(request, client_ref):
     """pass status as a request params, allowed values are all, disbursed, pending"""
     status = request.GET.get('status')
+    
     if status =="all":
         loans = Loan.objects.filter(client_ref=client_ref).order_by("-id")
     else:
         loans = Loan.objects.filter(client_ref=client_ref, loan_status=status).order_by("-id")
     serializer = LoanAllSerializer(loans, many=True) 
+    return format_response(code=200, message=serializer.data)
+
+
+@api_view(["GET"])
+@authentication_classes([])
+@permission_classes([])
+def view_loan(request, loan_ref):
+    """pass status as a request params, allowed values are all, disbursed, pending"""
+    client_ref = request.headers.get('Client')
+    
+    try:
+        loan = Loan.objects.tenant_querry(client_ref=client_ref).get(loan_ref=loan_ref)
+    except Exception:
+        return format_response(code=200, message={"message": "sorry loan does not exist"})
+    serializer = LoanAllSerializer(loan) 
     return format_response(code=200, message=serializer.data)
 
     

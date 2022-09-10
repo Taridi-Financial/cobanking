@@ -1,3 +1,4 @@
+from cbsaas.cin.models import CINRegistry
 from cbsaas.clients.models import Clients
 from rest_framework.response import Response
 from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
@@ -16,6 +17,14 @@ def get_model(id, model_name):
         except Exception:
             obj = None
         return obj
+
+def get_cin_from_number(cin_number):
+
+    try:
+        obj = CINRegistry.objects.get(cin=cin_number)
+    except Exception:
+        obj = None
+    return obj
 
 
 def get_client_from_ref(client_ref):

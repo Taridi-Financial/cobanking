@@ -102,6 +102,15 @@ def wallet_search(wallet_ref=None, return_wallet=True, select_for_update=False):
         return {"status": 1, "message": "Wallet does not exist"}
 
 
+def get_primary_consumer_wallet(cin=None):
+    try:
+        wallet = Wallet.objects.filter(cin=cin, scheme_code = "NM100").first()
+    except Exception:
+        return None
+    else:
+        return wallet
+
+
 def get_transaction_details(transaction_ref):
     transaction = Transactions.objects.get(transaction_ref=transaction_ref)
 

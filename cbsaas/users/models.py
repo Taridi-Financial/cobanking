@@ -25,6 +25,7 @@ class User(AbstractUser):
     gender = models.CharField(max_length=1000,blank=True,null=True)
     DOB = models.CharField(max_length=1000,blank=True,null=True)
     marital_status = models.CharField(max_length=100,default=0,blank=True,null=True)
+    # session_mode = models.CharField(max_length=100,default=0,blank=True,null=True) #staff, user, provider
 
     first_name = None  # type: ignore
     last_name = None  # type: ignore

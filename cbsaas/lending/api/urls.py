@@ -8,7 +8,9 @@ urlpatterns = [
     path("request-to-repay-loan", views.request_to_repay_loan, name="request_to_repay_loan"), 
     path("manual-repay-loan", views.manual_repay_loan, name="repay_loan"),  
     path("view-loans/<str:client_ref>", views.view_loans, name="view_loans"), 
+    path("view-loan", views.view_loan, name="view_loans"), 
     path("approve-loan", views.approve_loan, name="approve_loan"), 
+    path("close-loan", views.close_loan, name="close loan"), 
     path("add-loan-security", views.add_loan_security, name="add_loan_security"), 
 
     path("create-loan-product", views.create_loan_product, name="create_loan_product"),

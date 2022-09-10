@@ -14,7 +14,7 @@ class Loan(GlobalBaseModel):
     client = models.ForeignKey(Clients, on_delete=models.CASCADE)
     cin = models.ManyToManyField(CINRegistry)   #relates to the user who borrowed
     loan_type_code = models.CharField(max_length=100)
-    loan_ref = models.CharField(max_length=100)
+    loan_ref = models.CharField(max_length=100, unique=True)
     applied_amount = models.FloatField(default=0.00)
     amount_disbursed = models.FloatField(default=0.00)
     loan_status = models.CharField(max_length=100)  #preapplication, pending, approved, disbursed, closed 

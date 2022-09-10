@@ -13,6 +13,7 @@ class ApplyMobileLoanSerializer(serializers.Serializer):
     client_ref = serializers.CharField(allow_blank=False, max_length=100)
     amount= serializers.CharField(allow_blank=False, max_length=100)
     loan_code=serializers.CharField(allow_blank=False, max_length=100)
+    applicant_cin=serializers.CharField(allow_blank=False, max_length=100)
 
 class RepayLoanerializer(serializers.Serializer):
     loan_ref = serializers.CharField(allow_blank=False, max_length=100)
