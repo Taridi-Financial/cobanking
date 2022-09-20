@@ -1,5 +1,6 @@
 from cbsaas.banking.tasks import celery_test_print
 from cbsaas.ibase.services.authorities import has_view_rights
+from cbsaas.ibase.services.helpers import format_response, tenant_get_model
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
@@ -10,156 +11,109 @@ from rest_framework.status import HTTP_200_OK, HTTP_400_BAD_REQUEST
 
 from cbsaas.banking.api.serializers import AddWalletSerializer, WalletAllSerializer, WalletRecordsAllSerializer, TransactionsAllSerializer
 from cbsaas.banking.models import Wallet, WalletRecords, Transactions
-from cbsaas.banking.services.operations import create_wallet, get_transaction_details, wallet_search
+from cbsaas.banking.services.operations import create_wallet, get_transaction,  wallet_search
 from cbsaas.clients.models import Clients
 from drf_spectacular.utils import extend_schema
 
 
-@api_view(["POST"])
-def move_funds(request):
-    transaction = Transactions()
-    transaction.transact(debit_wallet_ref=0, credit_wallet_ref=0, amount=0)
-
-
-@api_view(["POST"])
-def deposit_funds(request):
-    transaction = Transactions()
-    transaction.transact(debit_wallet_ref=0, credit_wallet_ref=0, amount=0)
-
-
-@api_view(["POST"])
-@authentication_classes([])
-@permission_classes([])
-def add_wallet(request):
-    """Parameters client_ref, wallet_name, wallet_type,scheme_code"""
-    serializer = AddWalletSerializer(data=request.data)
-    if serializer.is_valid():
-        client_ref=serializer.data['client_ref']
-        wallet_name=serializer.data['wallet_name']
+@api_view(['GET', 'POST'])
+def wallet_list_or_create(request):
+    client_id = request.data.get("client_id", None)
+    if request.method == "GET":
+        status = request.GET.get('status', None)
+        if not status:
+            wallet_qs = Wallet.objects.tenant_querry(client_id=client_id).all().order_by("-id")
+        else:
+            wallet_qs = Wallet.objects.tenant_querry(client_id=client_id).filter(status=status).order_by("-id")
+        wallet_serializers = WalletAllSerializer(wallet_qs, many=True)
+        return format_response(code=200, message={"wallets":wallet_serializers.data})
+    else:
+        wallet_serializer = AddWalletSerializer(data=request.data)
+        if not wallet_serializer.is_valid():
+            return format_response(code=400, message=wallet_serializer.errors)
+        
+        client_ref=wallet_serializer.data['client_ref']
+        wallet_name=wallet_serializer.data['wallet_name']
         wallet_type=request.data['wallet_type']
+        scheme_code=wallet_serializer.data['scheme_code']
+        create_wlt_resp = create_wallet(client_ref=client_ref, wallet_name=wallet_name, wallet_type=wallet_type)
 
-        scheme_code=serializer.data['scheme_code']
-       
-        create_wlt_resp = create_wallet(
-            client_ref=client_ref, wallet_name=wallet_name, wallet_type=wallet_type
-        )
         action_status = create_wlt_resp["status"]
         message = create_wlt_resp["message"]
         wallet_ref = create_wlt_resp["wallet_ref"]
         if action_status == 1:
-            return Response(
-                {"status": action_status, "message": message,},
-                status=HTTP_400_BAD_REQUEST,
-            )
+            return format_response(code=400, message={"message": message})      
         else:
-            return Response(
-                {"status": action_status, "message": message ,"wallet_ref": wallet_ref}, status=HTTP_200_OK
-            )
-
-    return Response(data=serializer.errors, status=HTTP_400_BAD_REQUEST)
+            return format_response(code=200, message={"status": action_status, "message": message ,"wallet_ref": wallet_ref})
 
 
-@api_view(["POST"])
-@authentication_classes([])
-@permission_classes([])
-def edit_wallet(request):
-    serializer = AddWalletSerializer(data=request.data)
-    if serializer.is_valid():
+@api_view(['GET', 'PUT', 'DELETE'])
+def wallet_get_or_update(request, pk):
+    client_id = request.data.get("client_id", None)
+    wallet = tenant_get_model(client_id=client_id, pk=pk, model_name="wallet")
+    if not wallet:
+        return format_response(code=400, message={"message": "Wallet not found"})
 
-        wallet_name=serializer.data['wallet_name']
-        wallet_type=serializer.data['wallet_type']
-        
-        wallet_ref=serializer.data['wallet_ref']
-
-        wallet_search =  wallet_search(wallet_ref=wallet_ref, return_wallet=True)
-        if not wallet_search["status"] == 0:
-            return Response({ "message": wallet_search["message"]},status=HTTP_400_BAD_REQUEST)
-        else:
-            wallet = wallet_search["wallet"]
-            wallet.wallet_name = wallet_name
-            wallet.wallet_type = wallet_type
-            wallet.save()
-            return Response({ "message": "wallet updated successfully" ,"wallet_ref": wallet_ref}, status=HTTP_200_OK)
-
-    return Response(data=serializer.errors, status=HTTP_400_BAD_REQUEST)
-
-
-
-@api_view(["GET"])
-@authentication_classes([])
-@permission_classes([])
-def view_wallet(request, waller_ref):
-    search_rslt = wallet_search(wallet_ref=waller_ref, return_wallet=True)
-    if search_rslt['status'] == 0:
-        
-        wallet = search_rslt["wallet"]
+    if request.method == "GET":
         wlt_serializer = WalletAllSerializer(wallet)
-        return Response({'wlt_dtls': wlt_serializer.data, },
-                status=HTTP_200_OK)   
+        return format_response(code=200, message=wlt_serializer.data)
 
+    if request.method == "PUT":
+        serializer = AddWalletSerializer(data=request.data)
+        wlt_serializer = AddWalletSerializer(instance=wallet, data=request.data)
+        if not wlt_serializer.is_valid():
+            return format_response(code=400, message=wlt_serializer.errors)
+        wlt_serializer.save()
+        return format_response(code=200, message=wlt_serializer.data)
 
-
-@api_view(["POST"])
-def delete_wallet(request):
-    wallet_ref=request.data['wallet_ref']
-    search_rslts =  wallet_search(wallet_ref=wallet_ref, return_wallet=True)
-    if not search_rslts["status"] == 0:
-        return Response({ "message": search_rslts["message"]},status=HTTP_400_BAD_REQUEST)
-    else:
-        wallet = search_rslts["wallet"]
+    if request.method == "DELETE":
         wallet.delete()
-        return Response({ "message": "wallet updated successfully" ,"wallet_ref": wallet_ref}, status=HTTP_200_OK)
+        return format_response(code=204, message={'msg': 'done'})
 
-
-@api_view(["GET"])
-# @authentication_classes([])
-# @permission_classes([])
-def view_wallets(request):
-    celery_test_print.delay()
-    wallets = Wallet.objects.tenant_querry(client_ref=None).all().order_by("-id")
-    serializer = WalletAllSerializer(wallets, many=True)
-    return Response({'wallets': serializer.data},
-                    status=HTTP_200_OK)
-
-
-@api_view(["GET"])
+    
+@api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
-def wallet_records_lookup(request, waller_ref):
+def wallet_transactions(request):
+    client_id = request.data.get("client_id", None)
+    waller_ref = request.data.get("waller_ref", None)
     search_rslt = wallet_search(wallet_ref=waller_ref, return_wallet=True)
     if not search_rslt['status'] == 0:
-        return Response({ "message": search_rslt["message"]},status=HTTP_400_BAD_REQUEST)
+        return format_response(code=400, message={"message": search_rslt["message"]})
     else:
         wallet = search_rslt["wallet"]
         wlt_serializer = WalletAllSerializer(wallet)
-
-        records = WalletRecords.objects.filter(wallet_ref=wallet.wallet_ref).order_by("-id")
+        records = WalletRecords.objects.tenant_querry(client_id=client_id).filter(wallet_id=wallet.id).order_by("-id")
         records_serializer = WalletRecordsAllSerializer(records, many=True)
-
-        return Response({'wlt_dtls': wlt_serializer.data, 'records_dtls': records_serializer.data},
-                status=HTTP_200_OK)
-
-
-@api_view(["GET"])
-@authentication_classes([])
-@permission_classes([])
-def view_all_ledgers(request):
-    ledgers = Wallet.objects.all().order_by("-id")
-    serializer = WalletAllSerializer(ledgers, many=True)
-    return Response({'ledgers': serializer.data},
-                    status=HTTP_200_OK)
-            
+        return format_response(code=200, message={'wlt_dtls': wlt_serializer.data, 'records_dtls': records_serializer.data})
 
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
 def transaction_view(request):
+    client_id = request.data.get("client_id", None)
     transaction_ref = request.data.get('transaction_ref')
-    transaction_details = get_transaction_details(transaction_ref)
+    transaction = get_transaction(client_id=client_id, trans_ref=transaction_ref)
+    if not transaction:
+        return format_response(code=400, message={"message": "Transaction does not exist"})
 
     transaction = Transactions.objects.get(id=1)
-    serializer = TransactionsAllSerializer(transaction)
-    part_trans = 0
-    return Response({'transaction': serializer.data, "part_trans":part_trans},
+    trans_serializer = TransactionsAllSerializer(transaction)
+    records = WalletRecords.objects.tenant_querry(client_id=client_id).filter(transaction_ref=transaction_ref).order_by("-id")
+    records_serializer = WalletRecordsAllSerializer(records, many=True)
+
+    return Response({'transaction': trans_serializer.data, "part_trans":records_serializer.data},
                     status=HTTP_200_OK)
 
+@api_view(["POST"])
+def withdraw_funds(request):
+    pass
+
+@api_view(["POST"])
+def deposit_funds(request):
+    pass
+
+
+@api_view(["POST"])
+def transfer_funds(request):
+    pass

@@ -1,5 +1,5 @@
 from django.test import TestCase
-from cbsaas.cin.models import CINRegistry
+from cbsaas.clients.models import ConsumerRegistry
 
 def TestWalletOperations(TestCase):
 
@@ -53,6 +53,10 @@ def TestTransactionOperations(TestCase):
         # Clean up run after every test method.
         pass
 
-    def test_can_create_user_wallet():
+    def test_deposit_to_wallet():
+        """TO DO: Test that tha use can only apply below their test limit"""
+        pass
+
+    def test_withdrawal_from_wallet():
         """TO DO: Test that tha use can only apply below their test limit"""
         pass

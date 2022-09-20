@@ -59,7 +59,7 @@ DJANGO_APPS = [
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
-    "django.contrib.sites",
+    # "django.contrib.sites",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # "django.contrib.humanize", # Handy template tags
@@ -82,13 +82,11 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "cbsaas.users",
-    "cbsaas.cin",
     "cbsaas.clients",
     "cbsaas.ibase",
     "cbsaas.banking",
     "cbsaas.parameters",
     "cbsaas.lending",
-    "cbsaas.customers",
     "cbsaas.payments",
     "cbsaas.payments_service"
 ]
@@ -150,7 +148,8 @@ MIDDLEWARE = [
     "django.middleware.common.BrokenLinkEmailsMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     'django_prometheus.middleware.PrometheusBeforeMiddleware',
-    'django_prometheus.middleware.PrometheusAfterMiddleware'
+    'django_prometheus.middleware.PrometheusAfterMiddleware',
+    'cbsaas.clients.authorities.clientauthorities.ClientAuthority'
 ]
 
 # STATIC

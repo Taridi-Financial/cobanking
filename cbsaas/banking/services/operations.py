@@ -31,15 +31,17 @@ def batch_credit_transact(debit_wallet_ref=None,debit_amount=None,debit_narratio
     trans_response = transaction.batch_credit(debit_wallet_ref=debit_wallet_ref, debit_narration=debit_narration, debit_amount=debit_amount, overdraw=True, credit_details=credit_details, **kwargs)
     return trans_response
 
-def create_wallet(client_ref=None, wallet_name=None,  wallet_type=None):
+def create_wallet(client_ref=None, wallet_name=None,  wallet_type=None, scheme_code=None):
     cin_search = get_client_cin(client_ref=client_ref)
     cin = cin_search["cin"]
     if wallet_type == "NORMAL":
+        if not scheme_code:
+            scheme_code = "N100"
         new_wlt = Wallet()
         new_wlt.wallet_ref = random.randint(1000, 10000)
         new_wlt.wallet_name = wallet_name
         new_wlt.status = "pending"
-        new_wlt.scheme_code = "NM100"
+        new_wlt.scheme_code = scheme_code
        
         new_wlt.save()
         new_wlt.cin.add(cin)
@@ -49,28 +51,15 @@ def create_wallet(client_ref=None, wallet_name=None,  wallet_type=None):
             "message": "Normal Wallet created",
             "wallet_ref": new_wlt.wallet_ref,
         }
-
-    elif wallet_type == "LEDGER":
-        new_wlt = Wallet()
-        new_wlt.wallet_ref = random.randint(1000, 10000)
-        new_wlt.wallet_name = wallet_name
-        new_wlt.status = "pending"      
-        new_wlt.scheme_code = "LD105"
-        new_wlt.save()
-        new_wlt.cin.add(cin)
-        new_wlt.save()
-        return {
-            "status": 0,
-            "message": "Ledger Wallet created",
-            "wallet_ref": new_wlt.wallet_ref,
-        }
     elif wallet_type == "LOAN":
         new_wlt = Wallet()
+        if not scheme_code:
+            scheme_code = "L200"
         new_wlt.wallet_ref = random.randint(1000, 10000)
         new_wlt.wallet_name = wallet_name
         new_wlt.status = "active"
         new_wlt.allow_overdraw = True
-        new_wlt.scheme_code = "LN100"
+        new_wlt.scheme_code = scheme_code
         
         new_wlt.save()
         new_wlt.cin.add(cin)
@@ -81,13 +70,28 @@ def create_wallet(client_ref=None, wallet_name=None,  wallet_type=None):
             "wallet_ref": new_wlt.wallet_ref,
         }
 
+    elif wallet_type == "LEDGER":
+        if not scheme_code:
+            scheme_code = "D300"
+        new_wlt = Wallet()
+        new_wlt.wallet_ref = random.randint(1000, 10000)
+        new_wlt.wallet_name = wallet_name
+        new_wlt.status = "pending"      
+        new_wlt.scheme_code = scheme_code
+        new_wlt.save()
+        new_wlt.cin.add(cin)
+        new_wlt.save()
+        return {
+            "status": 0,
+            "message": "Ledger Wallet created",
+            "wallet_ref": new_wlt.wallet_ref,
+        }
+    
+
 
 def generate_wallet_ref(cin=None, wallet_name=None, scheme_code=None, wallet_type=None):
     """To do"""
     pass
-
-
-
 
 def wallet_search(wallet_ref=None, return_wallet=True, select_for_update=False):
 
@@ -111,9 +115,9 @@ def get_primary_consumer_wallet(cin=None):
         return wallet
 
 
-def get_transaction_details(transaction_ref):
-    transaction = Transactions.objects.get(transaction_ref=transaction_ref)
-
+def get_transaction(client_id = None, trans_ref=None):
+    transaction = Transactions.objects.tenant_querry(client_id=client_id).filter(transaction_ref=trans_ref).first()
+    return transaction
 
 
 def add_lien(wallet_ref=None, amount=None, narration=None,done_by=None):
@@ -139,3 +143,23 @@ def release_lien(lien_entry=None, amount=None, done_by=None):
     wallet.release_lien(amount=amount)
     lien_entry.lien_amount = (lien_entry.lien_amount-amount)
     lien_entry.save()
+
+
+def withdrwaw_funds(user_wlt = None,client_wlt=None, amount=None):
+    withdraw_check = can_withdraw(wlt_ref=user_wlt, amount=amount)
+    if withdraw_check is False:
+        return False
+    single_transact(
+        debit_wallet_ref=None,
+        credit_wallet_ref=None,
+        amount=None,
+        debit_narration=None,credit_narration=None
+)
+    
+    
+def can_withdraw(wlt_ref=None, amount=None):
+    return True
+
+def get_withdrawal_charges(wlt_ref=None, amount=None) -> dict:
+    """Return the destination wallet and the amount"""
+    return {"charge_dest": "", "amount": 200}

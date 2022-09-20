@@ -1,5 +1,5 @@
 from django.test import TestCase
-from cbsaas.cin.models import CINRegistry
+from cbsaas.cin.models import ConsumerRegistry
 
 from cbsaas.clients.models import Clients
 from cbsaas.lending.models import LoanProduct
@@ -10,7 +10,7 @@ def TestLoanOperations(TestCase):
     def setUp(self):
         # Setup run before every test method.
         Clients.objects.create(client_name='Big', identifying_number=1234, address="dd")
-        CINRegistry.objects.create(cin='123', client_ref=self.client.client_ref)
+        ConsumerRegistry.objects.create(national_number='123', client_ref=self.client.client_ref)
         LoanProduct.objects.create(client_id=1, 
                                     loan_code="TB100",
                                     loan_type="mobile" , 
@@ -22,7 +22,7 @@ def TestLoanOperations(TestCase):
                                     penalty_period =60,
                                     penalty_grace_period = 10)
 
-        CINRegistry.objects.create(cin='123', client_ref=self.client.client_ref)
+        ConsumerRegistry.objects.create(national_number='123', client_ref=self.client.client_ref)
 
     def tearDown(self):
         # Clean up run after every test method.
@@ -35,7 +35,7 @@ def TestLoanOperations(TestCase):
     def test_apply_loan():
         """TO DO: Test that the loan can be applied and set to pending"""
         client_ref  = Clients.objects.get(id=1)
-        loan_ops = LoanOperations(client_ref=None, amount=1000, loan_code=None,phone_number=None,applicant_cin=None, action_by=None, loan_type = "mobile")
+        loan_ops = LoanOperations(client_ref=None, amount=1000, loan_code=None,phone_number=None,consumer=None, action_by=None, loan_type = "mobile")
     
 
 
@@ -64,7 +64,7 @@ def TestSecuringLoans(TestCase):
 
         self.client = Clients.objects.create(client_name='Big', identifying_number=1234, address="dd")
         
-        self.cin = CINRegistry.objects.create(cin='123', client_ref=self.client.client_ref)
+        self.consumer = ConsumerRegistry.objects.create(national_number='123', client_ref=self.client.client_ref)
         pass
 
     def tearDown(self):

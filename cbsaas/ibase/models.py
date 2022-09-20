@@ -1,8 +1,6 @@
 from datetime import timezone
 from django.db import models
 
-from cbsaas.clients.models import Clients
-
 """Meant to implement soft delete"""
 
 
@@ -10,7 +8,11 @@ class GlobalBaseManager(models.Manager):
     def get_queryset(self):
         return super().get_queryset().filter(deleted_at__isnull=True)
 
-    def tenant_querry(self, client_ref=None):
+    def tenant_querry(self, client_id=None):
+        return super().get_queryset().filter(deleted_at__isnull=True)
+
+    def gen_querry(self):
+        """For client querries. for objects without client relation by default"""
         return super().get_queryset().filter(deleted_at__isnull=True)
 
 
@@ -56,7 +58,3 @@ class BaseModel(models.Model):
         abstract = True
 
 
-class TenantBaseModel(BaseModel):
-    client = models.ForeignKey(Clients, on_delete=models.CASCADE)
-    class Meta:
-        abstract = True

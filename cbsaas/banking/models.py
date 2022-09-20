@@ -2,22 +2,23 @@ from random import choice
 from string import ascii_uppercase
 
 from django.db import models, transaction
-from cbsaas.cin.models import CINRegistry
+from cbsaas.cin.models import ConsumerRegistry
 from cbsaas.ibase.models import GlobalBaseModel
+from cbsaas.ibase.tenantmodels import TenantBaseModel
 from . import signals
 
 
-class BaseWallet(GlobalBaseModel):
+class BaseWallet(TenantBaseModel):
     wallet_ref = models.CharField(max_length=300)
-    cin = models.ManyToManyField(CINRegistry)
+    consumer = models.ManyToManyField(ConsumerRegistry)
     scheme_code = models.CharField(max_length=300, default="NM100") #LN100, LD100
     wallet_type = models.CharField(max_length=300)
     wallet_name = models.CharField(max_length=300)
     balance = models.FloatField(default=0.00)
     available_balance = models.FloatField(default=0.00)
     lien_amount = models.FloatField(default=0.00)
-    allow_overdraw = models.BooleanField(default=False)   #closed, dormant, pending, active
-    status = models.CharField(max_length=300)
+    allow_overdraw = models.BooleanField(default=False)   
+    status = models.CharField(max_length=300) #closed, dormant, pending, active
     class Meta:
         abstract = True
 
@@ -107,11 +108,12 @@ class Wallet(BaseWallet):
     pass
 
 
-class WalletRecords(GlobalBaseModel):
-    wallet_ref = models.CharField(max_length=500, blank=True, null=True)
-    record_type = models.CharField(max_length=300, blank=True, null=True)
+class WalletRecords(TenantBaseModel):
+    wallet = models.ForeignKey(Wallet, on_delete=models.CASCADE)
+    # wallet = models.CharField(max_length=500, blank=True, null=True)
+    record_type = models.CharField(max_length=300)
     record_amount = models.FloatField(default=0.00)
-    transaction_ref = models.CharField(max_length=300, blank=True, null=True)
+    transaction_ref = models.CharField(max_length=300)
     narration = models.CharField(max_length=500, blank=True, null=True)
     wallet_balance = models.FloatField(default=0.00)
     related_source = models.CharField(max_length=500, blank=True, null=True)
@@ -152,7 +154,7 @@ def wallet_search(wallet_ref=None, return_wallet=True, select_for_update=False):
         else:
             return {"status": 0, "message": "Normal Wallet exists"}
 
-class Transactions(GlobalBaseModel):
+class Transactions(TenantBaseModel):
     transaction_ref = models.CharField(max_length=300, blank=True, null=True)
     debit_part_trans = models.IntegerField(default=1, blank=True, null=True)
     credit_part_trans = models.IntegerField(default=1, blank=True, null=True)
@@ -308,7 +310,7 @@ class Transactions(GlobalBaseModel):
                     return {"status": 0, "message": "Batch process succesful", 'trans_ref':self.id}
 
 
-class TransactionsRecords(GlobalBaseModel):
+class TransactionsRecords(TenantBaseModel):
     transaction_ref = models.CharField(max_length=300, blank=True, null=True)
     wallet_ref = models.CharField(max_length=300, blank=True, null=True)
     wallet_action = models.CharField(max_length=300, blank=True, null=True)
@@ -338,13 +340,36 @@ def get_withdrawal_deductions(wallet=None):
     return {"withdrawal_fee": withdrwl_fee, "withdrwl_penalty": withdrwl_penalty, "total_deductions": total_deductions}
 
 
-class LienEntries(GlobalBaseModel):
+class LienEntries(TenantBaseModel):
     wallet_ref = models.CharField(max_length=300)
     lien_amount = models.FloatField(default=0.00)
     narration = models.CharField(max_length=100)
     done_by = models.CharField(max_length=30, blank=True, null=True)
     approved_by = models.CharField(max_length=30, blank=True, null=True)
 
+"""Savings"""
+class SavingsProduct(TenantBaseModel): 
+    name = models.CharField(max_length=100)
+    scheme_code = models.CharField(max_length=100)
+    is_fixed = models.BooleanField(default=False)
+    fixed_period = models.CharField(max_length=200) 
+    monthly_charges = models.BooleanField(default=False)
+    withdrawal_fee = models.BooleanField(default=False)
 
     
-    
+    withdrawal_fee = models.CharField(max_length=200) #needs a dest wallet
+    payable_interest = models.CharField(max_length=200) #needs a dest wallet
+    monthly_charges = models.CharField(max_length=100)  #needs a dest wallet 
+                    
+    def __str__(self):
+        return self.Name
+
+
+class SavingsProductCharges(GlobalBaseModel):  
+    savings_product = models.ForeignKey(SavingsProduct, on_delete=models.CASCADE)
+    charge_name = models.CharField(max_length=100, blank=True, null=True)
+    charge_frequency = models.CharField(max_length=100, default="oneoff") #onwithdraw, daily, weekly, monthly
+    charge_moment = models.CharField(max_length=100) #precreation, predisbursment, postdisbursment, interest, ondefault
+    charge_value_type = models.CharField(max_length=100) # fixed, percentage
+    charge_value = models.CharField(max_length=100) 
+    charge_destination = models.CharField(max_length=100, null=True) 

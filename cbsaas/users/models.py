@@ -6,7 +6,8 @@ from django.db import models
 from cbsaas.clients.models import Clients
 from cbsaas.ibase.models import GlobalBaseModel
 
-from cbsaas.cin.models import CINRegistry
+from cbsaas.cin.models import ConsumerRegistry
+from cbsaas.ibase.tenantmodels import TenantBaseModel
 class User(AbstractUser):
     """
     Default custom user model for cbsaas.
@@ -18,14 +19,14 @@ class User(AbstractUser):
     name = CharField(_("Name of User"), blank=True, max_length=255)
     email = models.CharField(max_length=255)
     USERNAME_FIELD: email
-    client = models.ForeignKey(Clients, on_delete=models.CASCADE, default=1)
-    cin = models.OneToOneField(CINRegistry, on_delete=models.SET_NULL, blank=True, null=True)
-    phone = models.CharField(max_length=100) 
-    physical_address = models.CharField(max_length=100,default=0,blank=True,null=True) 
+    client = models.ForeignKey(Clients, on_delete=models.SET_NULL)
+    consumer = models.OneToOneField(ConsumerRegistry, on_delete=models.SET_NULL) 
     gender = models.CharField(max_length=1000,blank=True,null=True)
-    DOB = models.CharField(max_length=1000,blank=True,null=True)
-    marital_status = models.CharField(max_length=100,default=0,blank=True,null=True)
-    # session_mode = models.CharField(max_length=100,default=0,blank=True,null=True) #staff, user, provider
+    phone = models.CharField(max_length=100,blank=True,null=True) 
+    DOB = models.DateField()
+    marital_status = models.CharField(max_length=100,blank=True,null=True)
+    pin = models.CharField(max_length=100,blank=True, null=True)
+    session_mode = models.CharField(max_length=100,default=0,blank=True,null=True) #staff, user, provider
 
     first_name = None  # type: ignore
     last_name = None  # type: ignore
@@ -37,12 +38,6 @@ class User(AbstractUser):
         """
         return reverse("users:detail", kwargs={"username": self.username})
 
-class Customers(GlobalBaseModel):  
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, blank=True, null=True)
-    membership_no= models.CharField(max_length=100,blank=True,null=True)
-    Status = models.CharField(max_length=100,default=0,blank=True,null=True) 
-    pin = models.CharField(max_length=100,blank=True, null=True)
-
     def set_pin(self, pin=None):
         pass
 
@@ -51,32 +46,38 @@ class Customers(GlobalBaseModel):
 
     def verify_pin(self, pin=None):
         pass
-    
+
+class Staff(TenantBaseModel):  
+    user = models.OneToOneField(User, on_delete=models.SET_NULL)
+    staff_id = models.CharField(max_length=100)
+    role = models.CharField(max_length=100)
+    designation = models.CharField(max_length=100,blank=True,null=True) #manager, ceo
+
+class Members(TenantBaseModel):  
+    user = models.OneToOneField(User, on_delete=models.SET_NULL)
+    membership_no= models.CharField(max_length=100,blank=True,null=True)
+    status = models.CharField(max_length=100,default=0,blank=True,null=True) 
     
 
-class TempCustomers(GlobalBaseModel):  
-    type = models.CharField(max_length=100,blank=True, null=True) #new edit, delete
+class TempUsers(TenantBaseModel):  
+    action = models.CharField(max_length=100,blank=True, null=True) #new edit, delete
     instance_id = models.CharField(max_length=100,blank=True,null=True)
     made_by = models.CharField(max_length=100,blank=True,null=True) 
     checked_by = models.CharField(max_length=100,blank=True,null=True) 
     status = models.CharField(max_length=100,default=0,blank=True,null=True) #enter, approved, rejected
-
+    user_type = models.CharField(max_length=100,default=0,blank=True,null=True) #member, staff
     first_name = models.CharField(max_length=100,blank=True, null=True) 
     last_name = models.CharField(max_length=100,blank=True,null=True)
     email = models.CharField(max_length=100,blank=True,null=True) 
-    membership_no= models.CharField(max_length=100,blank=True,null=True)
+    staff_or_member_no= models.CharField(max_length=100,blank=True,null=True)
     physical_address = models.CharField(max_length=100,default=0,blank=True,null=True) 
     gender = models.CharField(max_length=1000,blank=True,null=True)
     DOB = models.CharField(max_length=1000,blank=True,null=True)
     marital_status = models.CharField(max_length=100,default=0,blank=True,null=True)
-    pin = models.CharField(max_length=10,blank=True, null=True)
 
-"""
-TO DO: Staff processing
-class Staff(GlobalBaseModel):  
-    user = models.OneToOneField(User, on_delete=models.SET_NULL, blank=True, null=True)
-    staff_id = models.CharField(max_length=100,blank=True,null=True)
+class UserContacts(TenantBaseModel):  
+    user = models.ForeignKey(User, on_delete=models.SET_NULL)
+    phone = models.CharField(max_length=100,blank=True,null=True) 
+    email = models.CharField(max_length=255)
+    physical_address = models.CharField(max_length=100,default=0,blank=True,null=True)
 
-class TempStaff(GlobalBaseModel):  
-    type = models.CharField(max_length=100,blank=True, null=True) #new edit, delete
-"""

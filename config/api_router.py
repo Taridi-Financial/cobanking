@@ -19,11 +19,9 @@ urlpatterns += [
     path("theusers/", include("cbsaas.users.urls")),
     path("ausers/", include("cbsaas.users.api.urls")),
     path("clients/", include("cbsaas.clients.api.urls")),
-    path("cin/", include("cbsaas.cin.api.urls")),
     path("parameters/", include("cbsaas.parameters.api.urls")),
     path("cb/", include("cbsaas.banking.api.urls")),
     path("lending/", include("cbsaas.lending.api.urls")),
-    path("customers/", include("cbsaas.customers.api.urls")),
     path("payments/", include("cbsaas.payments.api.urls")),
     path("payments-service/", include("cbsaas.payments_service.api.urls")),
 ]

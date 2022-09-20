@@ -3,7 +3,7 @@ from cbsaas.ibase.services.authorities import has_view_rights
 from cbsaas.ibase.services.helpers import format_response, get_cin_from_number
 from cbsaas.lending.api.serializers import ApplyMobileLoanSerializer, ApproveLoanerializer, CreateLoanProductChargeserializer, CreateLoanProductSerializer, LoanAllSerializer, RepayLoanerializer
 from cbsaas.lending.models import Loan
-from cbsaas.lending.services.operations import LoanOperations
+from cbsaas.lending.services.operations import LoanOperations, loans_apply_loan
 from rest_framework.decorators import (api_view, authentication_classes,
                                        permission_classes)
 from rest_framework.response import Response
@@ -20,23 +20,19 @@ def apply_loan(request) -> str:
         For mobile applications the person who applies is the person set as the applicant. 
         For protal applications the person who applies is not the applicant. 
     """
+    client_id = request.data.get("client_id", None)
     serializer = ApplyMobileLoanSerializer(data=request.data)
     
     if not serializer.is_valid():
         return Response(data=serializer.errors, status=HTTP_400_BAD_REQUEST)
 
     phone_number = serializer.data['phone_number']
-    client_ref = serializer.data['client_ref']
+    action_by = request.user
     amount = serializer.data['amount']
     loan_code = serializer.data['loan_code']
-    disburse_wallet = request.data['disburse_wallet']
-    applicant_cin=request.data.get('applicant_cin')
-    client_id = 1
-    applicant_cin = get_cin_from_number(applicant_cin)
-
-    mobile_ln_ops =LoanOperations(phone_number=phone_number,  client_id=client_id, amount=amount, loan_code=loan_code, action_by="system", applicant_cin=applicant_cin)
-    resp = mobile_ln_ops.apply_loan(disburse_wallet=disburse_wallet)
-    
+    disburse_wallet = request.get('disburse_wallet', None)
+    consumer_number=request.data.get('consumer_number')
+    resp = loans_apply_loan(phone_number=phone_number,  client_id=client_id, amount=amount, loan_code=loan_code, action_by=action_by,disburse_wallet =disburse_wallet, consumer_number=consumer_number)
     return Response({"status": "action_status", "message": resp }, status=HTTP_200_OK)
     
 

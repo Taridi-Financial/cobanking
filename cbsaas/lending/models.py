@@ -1,8 +1,7 @@
 from django.db import models
 from django.utils.timezone import now
 from cbsaas.banking.models import WalletRecords
-from cbsaas.cin.models import CINRegistry
-from cbsaas.clients.models import Clients
+from cbsaas.clients.models import Clients, ConsumerRegistry
 from cbsaas.ibase.models import GlobalBaseModel
 
 from django.contrib.auth import get_user_model
@@ -12,7 +11,7 @@ User = get_user_model()
 
 class Loan(GlobalBaseModel):  
     client = models.ForeignKey(Clients, on_delete=models.CASCADE)
-    cin = models.ManyToManyField(CINRegistry)   #relates to the user who borrowed
+    consumer = models.ManyToManyField(ConsumerRegistry)   #relates to the user who borrowed
     loan_type_code = models.CharField(max_length=100)
     loan_ref = models.CharField(max_length=100, unique=True)
     applied_amount = models.FloatField(default=0.00)
@@ -47,19 +46,22 @@ class LoanProduct(GlobalBaseModel):
     penalty_grace_period = models.CharField(max_length=20, blank=True, null=True) #in days
 
 class LoanProductCharges(GlobalBaseModel):  
-    loan_code = models.CharField(max_length=100, blank=True, null=True)
+    loan_code = models.CharField(max_length=100)
+    charge_name = models.CharField(max_length=100)
     charge_code = models.CharField(max_length=100, blank=True, null=True)
     charge_frequency = models.CharField(max_length=100, default="oneoff") #One off, daily, weekly, monthly
     charge_moment = models.CharField(max_length=100) #precreation, predisbursment, postdisbursment, interest, ondefault
     charge_value_type = models.CharField(max_length=100) # fixed, percentage
     charge_value = models.CharField(max_length=100) 
-    charge_destination = models.CharField(max_length=100, null=True) 
+    charge_destination = models.CharField(max_length=100) 
 
     def calculate_charge(self, amount=None):
         if self.charge_value_type == "fixed":
             return self.charge_value
         else:
             return float(amount) * float(self.charge_value)
+
+ 
 
 class LoanAmotization(GlobalBaseModel):  
     loan_ref =  models.CharField(max_length=100) 
@@ -91,7 +93,7 @@ class LoanSecurities(GlobalBaseModel):
 #         abstract = True
 
 # class LoansActions(GlobalBaseModel):  
-#     loan_ref =  models.CharField(max_length=100, blank=True, null=True) 
+#     loan = models.ForeignKey(Loan, on_delete=models.CASCADE)
 #     action_by = models.CharField(max_length=100, blank=True, null=True)
 #     narration = models.CharField(max_length=100, blank=True, null=True)
 #     action_value = models.CharField(max_length=100, blank=True, null=True) 

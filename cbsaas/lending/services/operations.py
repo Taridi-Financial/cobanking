@@ -6,12 +6,12 @@ from rest_framework import serializers
 from django.db import models
 from cbsaas.banking.services.operations import batch_credit_transact, create_wallet, get_primary_consumer_wallet, single_transact
 from cbsaas.ibase.models import GlobalBaseModel
-from cbsaas.lending.models import LoanProductCharges, Loan
+from cbsaas.lending.models import LoanProductCharges, Loan, LoanSecurities
 from cbsaas.parameters.services.operations import get_wallet_ref_from_code
 
 
 
-class LoanOperations(models.Model):   
+class LoanOperations():   
     def __init__(self,**kwargs) -> None:
         self.__dict__.update(kwargs)
         self.operation_status = 0
@@ -125,6 +125,32 @@ class LoanOperations(models.Model):
             self.response_status = 1
             return {"response_status": self.response_status, "message": self.operation_msg }
 
+    def process_interest_charge(self):
+        for charge in self.charge_details:
+            """Process interest if it is on mobile"""
+            if charge["charge_moment"] == "interest" and self.loan_type =="mobile":
+                charge_destination = charge["charge_destination"]
+                narration = "Processing of interest on the loan"
+                if not charge_destination:
+                    pass
+                single_transact(debit_wallet_ref=self.loan.loan_wallet_ref,credit_wallet_ref=charge_destination,amount=charge["amount_to_charge"],debit_narration=narration,credit_narration=narration)
+                
+    
+    def process_postdisbursment_charges(self):
+        for charge in self.charge_details:
+            """Process interest if it is on mobile"""
+            if charge["charge_moment"] == "postdisbursment":
+                charge_destination = charge["charge_destination"]
+                self.disburse_amount = float(self.disburse_amount) - float(charge["amount_to_charge"])
+                narration = f"Processing of {charge.name} on the loan"
+                if not charge_destination:
+                    pass
+                single_transact(debit_wallet_ref=self.loan.loan_wallet_ref,credit_wallet_ref=charge_destination,amount=charge["amount_to_charge"],debit_narration=narration,credit_narration=narration) 
+
+
+    def process_applicant_messaging(self, message):
+        pass  
+
     def create_loan_wallet(self):        
         loan_wlt_dtls = create_wallet(client_ref=self.loan.client_ref, wallet_name="wen", wallet_type="LOAN")
         loan_wallet_ref = loan_wlt_dtls["wallet_ref"]
@@ -183,15 +209,20 @@ class LoanOperations(models.Model):
         self.set_loan_wallet()
         loan_wallet = wallet_search(wallet_ref=self.loan.loan_wallet_ref, return_wallet=True)
 
-    def add_loan_security(self,loan_code=None, amount=None ) -> None:
-        pass
+    def add_loan_security(self,security_type=None, value=None, security_id=None ) -> None:
+        #cash, lien, asset
+        LoanSecurities.objects.create(
+            loan= self.loan,
+            security_type = security_type,
+            value = value,
+            security_id = security_id)
 
     
 def get_disbursment_values(loan_code=None, amount=None):
     charges = LoanProductCharges.objects.filter(loan_code=loan_code)
     return {"disburse_amount": 1000, "interest": 100,  "loan_amount":1100, "loan_balance":1100 , "principle":1000}
 
-def check_autoapproval(loan_code=None, applicant_cin=None, amount=None):
+def check_autoapproval(loan_code=None, consumer=None, amount=None):
     return False
 
 
@@ -223,7 +254,9 @@ Give the charge and the destination accounts
 def update_amotization_table(loan_code=None, amount=None):
     charges = LoanProductCharges.objects.filter(loan_code=loan_code)
 
-
+def loans_apply_loan(phone_number=None,client_id=None, amount=None, loan_code=None,disburse_wallet=None, action_by=None,consumer_number=None):
+    mobile_ln_ops =LoanOperations(phone_number=phone_number,  client_id=client_id, amount=amount, loan_code=loan_code, action_by=action_by, consumer_number=consumer_number)
+    return mobile_ln_ops.apply_loan(disburse_wallet=disburse_wallet)
 
 # import pandas as pd
 # from datetime import date
